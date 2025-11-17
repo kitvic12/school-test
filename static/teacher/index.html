@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель учителя</title>
+    <link rel="stylesheet" href="/teacher/style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/teacher/script.js" defer></script>
+</head>
+<body>
+    <div id="status-message" class="hidden"></div>
+    <header>
+        <table>
+            <tbody>
+                <tr>
+                    <td><button id="swapButton" onclick="window.location.href='/'">🎓 Ученик</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </header>
+    
+    <div id="loginSection">
+        <main class="login-form">
+            <h1>Вход для учителя</h1>
+            <form id="loginForm">
+                <p><input type="text" id="username" placeholder="Логин" required></p>
+                <p><input type="password" id="password" placeholder="Пароль" required></p>
+                <p><button type="submit">Войти</button></p>
+            </form>
+            <div id="loginError" style="color: red; margin-top: 15px;"></div>
+        </main>
+    </div>
+
+    <div id="teacherSection" style="display: none;">
+        <main class="teacher-panel">
+            <h1>📊 Панель учителя</h1>
+            
+            <div class="controls">
+                <button id="startPowers" class="variant-btn">🎯 Степени двойки</button>
+                <button id="startSquares" class="variant-btn">🔢 Квадраты чисел</button>
+                <button id="stopBtn" class="stop-btn" style="display: none;">⏹️ Остановить тест</button>
+                <button id="finalizeBtn" class="finalize-btn" style="display: none;">🗑️ Завершить тест</button>
+                <button id="logoutBtn" class="logout-btn">Выйти</button>
+            </div>
+
+            <div id="activeTestInfo" class="status-info" style="display: none;">
+                <h3>✅ Тестирование запущено</h3>
+                <p>Ученики проходят тест. Результаты обновляются в реальном времени.</p>
+            </div>
+
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Фамилия</th>
+                        <th>IP</th>
+                        <th>Баллы</th>
+                        <th>Оценка</th>
+                        <th>Время</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <tr><td colspan="6" class="empty">Нет зарегистрированных учеников</td></tr>
+                </tbody>
+            </table>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загадки</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/student/script.js" defer></script>
+    <link rel="stylesheet" href="/student/style.css">
+</head>
+<body>
+    <div id="answer-status"></div>
+    <div id="timer-container"></div>
+    <main>
+        <h1 id="main-title">Регистрация</h1>
+        <div id="registration-block">
+            <p>Введите вашу фамилию</p>
+            <p><input id="student-name" type="text" placeholder="Фамилия"></p>
+            <p><button id="register-btn">Зарегистрироваться</button></p>
+        </div>
+        <div id="waiting-block" style="display: none;">
+            <p>Вы зарегистрированы как: <strong id="display-name"></strong></p>
+            <p>Ожидание запуска теста учителем...</p>
+            <button id="start-btn" style="display: none;">Приступить к тесту</button>
+        </div>
+        <div id="test-block" style="display: none;">
+            <p id="question"></p>
+            <p><input id="answer" type="text" placeholder="Ваш ответ"></p>
+            <p><button id="submit-btn">Ответить</button></p>
+        </div>
+        <div id="result-block" style="display: none;">
+            <p id="result-message"></p>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,95 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: black;
+}
+
+#answer-status {
+    z-index: 1;
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    transition-property: height, width, opacity;
+    transition-duration: 1s;
+    border-radius: 100%;
+}
+
+#answer-status.expand {
+    width: 3000px;
+    height: 3000px;
+}
+#answer-status.right {
+    background-color: green;
+}
+#answer-status.wrong {
+    background-color: red;
+}
+#answer-status.hidden {
+    opacity: 0;
+}
+
+main {
+    z-index: 2;
+    width: 25%;
+    min-height: 25%;
+    background-color: lightblue;
+    display: flex;
+    border-radius: 20px;
+    flex-direction: column;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 0 200px 40px black;
+    border: 3px dashed black;
+}
+
+input {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid black;
+    width: 50%;
+}
+
+button {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid black;
+    background-color: darkcyan;
+}
+
+header {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+}
+
+#timer-container {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    font-size: 48px;
+    font-weight: bold;
+    color: white;
+    background: #ff0000;
+    padding: 15px 25px;
+    border-radius: 10px;
+    min-width: 120px;
+    text-align: center;
+    display: none;
+}
+
+h1 {
+    margin-bottom: 20px;
+}

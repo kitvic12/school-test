@@ -1,0 +1,252 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    height: 100%;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: black;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+#status-message {
+    z-index: 1;
+    position: fixed;
+    width: 100px;
+    height: 100px;
+    transition-property: height, width, opacity;
+    transition-duration: 1s;
+    border-radius: 100%;
+}
+
+#status-message.expand {
+    width: 3000px;
+    height: 3000px;
+}
+
+#status-message.success {
+    background-color: green;
+}
+
+#status-message.error {
+    background-color: red;
+}
+
+#status-message.hidden {
+    opacity: 0;
+}
+
+main {
+    z-index: 2;
+    width: 95%;
+    max-width: 1200px;
+    background-color: lightblue;
+    display: flex;
+    border-radius: 20px;
+    flex-direction: column;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 0 200px 40px black;
+    border: 3px dashed black;
+    margin-top: 60px;
+}
+
+input {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid black;
+    width: 300px;
+    font-size: 16px;
+}
+
+button {
+    padding: 12px 24px;
+    border-radius: 20px;
+    border: 1px solid black;
+    background-color: darkcyan;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+}
+
+.kick-btn {
+    background-color: #ff4444;
+    color: white;
+    border: 1px solid white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.kick-btn:hover {
+    background-color: #cc0000;
+}
+
+header {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    color: white;
+    z-index: 1000;
+}
+
+table {
+    background-color: lightblue;
+    color: black;
+    border: 3px solid black;
+    box-shadow: 0 0 100px 5px white;
+    border-collapse: collapse;
+}
+
+#swapButton {
+    background-color: #4CAF50;
+    color: white;
+    border: 2px solid white;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+#swapButton:hover {
+    background-color: #45a049;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.variant-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border: 2px solid white;
+}
+
+.variant-btn:hover {
+    background-color: #45a049;
+}
+
+.stop-btn {
+    background-color: #f44336;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border: 2px solid white;
+}
+
+.stop-btn:hover {
+    background-color: #da190b;
+}
+
+.finalize-btn {
+    background-color: #ff9800;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border: 2px solid white;
+}
+
+.finalize-btn:hover {
+    background-color: #e68a00;
+}
+
+.logout-btn {
+    background-color: #666;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border: 2px solid white;
+}
+
+.logout-btn:hover {
+    background-color: #555;
+}
+
+.status-info {
+    background-color: #e8f5e8;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 20px 0;
+    border: 2px solid #4CAF50;
+    font-size: 18px;
+}
+
+.login-form {
+    width: 400px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.teacher-panel {
+    width: 100%;
+}
+
+.empty {
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 30px;
+    font-size: 2.5em;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+h3 {
+    color: #333;
+    margin: 0;
+}
+
+.results-table {
+    width: 100%;
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+.results-table th {
+    background-color: darkcyan;
+    color: white;
+    padding: 15px;
+    border: 2px solid black;
+    font-size: 18px;
+}
+
+.results-table td {
+    padding: 12px;
+    border: 2px solid black;
+    background-color: white;
+}
+
+.results-table tr:nth-child(even) td {
+    background-color: #f0f8ff;
+}
+
+.login-form input {
+    margin: 10px 0;
+}
+
+.login-form button {
+    margin-top: 20px;
+    width: 200px;
+    align-self: center;
+}
