@@ -76,20 +76,6 @@ button {
     margin: 5px;
 }
 
-.kick-btn {
-    background-color: #ff4444;
-    color: white;
-    border: 1px solid white;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.kick-btn:hover {
-    background-color: #cc0000;
-}
-
 header {
     position: fixed;
     top: 15px;

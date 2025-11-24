@@ -1,6 +1,6 @@
 TEACHER_CREDENTIALS = {
     'username': 'teacherEaVi',
-    'password': 'CheckingTest'
+    'password': 'ChekingTest'
 }
 
 def login_teacher(username, password):

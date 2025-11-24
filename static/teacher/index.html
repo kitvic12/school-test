@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель учителя</title>
-    <link rel="stylesheet" href="/teacher/style.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/teacher/script.js" defer></script>
+    <link rel="stylesheet" href="/static/teacher/style.css">
 </head>
 <body>
     <div id="status-message" class="hidden"></div>
@@ -24,8 +23,8 @@
         <main class="login-form">
             <h1>Вход для учителя</h1>
             <form id="loginForm">
-                <p><input type="text" id="username" placeholder="Логин" required></p>
-                <p><input type="password" id="password" placeholder="Пароль" required></p>
+                <p><input type="text" id="username" placeholder="Логин" required value="teacherEaVi"></p>
+                <p><input type="password" id="password" placeholder="Пароль" required value="ChekingTest"></p>
                 <p><button type="submit">Войти</button></p>
             </form>
             <div id="loginError" style="color: red; margin-top: 15px;"></div>
@@ -52,11 +51,11 @@
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>Фамилия</th>
+                        <th>№ ПК</th>
                         <th>IP</th>
+                        <th>Правильных</th>
                         <th>Баллы</th>
                         <th>Оценка</th>
-                        <th>Время</th>
                         <th>Действие</th>
                     </tr>
                 </thead>
@@ -66,5 +65,8 @@
             </table>
         </main>
     </div>
+
+
+    <script src="/static/teacher/script.js" defer></script>
 </body>
 </html>

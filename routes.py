@@ -1,4 +1,3 @@
-import time
 from flask import request, jsonify, session
 from flask_socketio import emit
 from auth import login_teacher
@@ -11,31 +10,39 @@ def calculate_grade(score):
     elif score >= 50: return '3'
     else: return '2'
 
+def count_correct(score):
+    if score is None:
+        return 0
+    return min(10, score // 10)
+
+def check_auto_stop(students_sessions, test_manager, emit_func):
+    if not test_manager.is_test_active():
+        return
+    # Проверяем всех учеников, кто сдал
+    active_students = [s for s in students_sessions.values() if s.get('connected', True)]
+    if not active_students:
+        return
+    all_submitted = all(s['score'] is not None for s in active_students)
+    if all_submitted:
+        test_manager.stop_test()
+        emit_func('test_stopped', {
+            'reason': 'auto',
+            'message': 'Тест автоматически остановлен: все ученики сдали'
+        }, namespace='/teacher', broadcast=True)
+        emit_func('test_stopped', {}, namespace='/student', broadcast=True)
+        # Отправляем ВСЕХ учеников, даже тех, кто уже сдал
+        emit_func('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
+        print("✅ Автоостановка: все ученики сдали, но данные остались")
+
 def setup_routes(app, socketio, students_sessions, test_manager):
-    def check_auto_stop():
-        if not test_manager.is_test_active():
-            return
-        active_students = [
-            s for s in students_sessions.values() 
-            if s.get('connected', True)
-        ]
-        if not active_students:
-            return
-        all_submitted = all(s['score'] is not None for s in active_students)
-        if all_submitted:
-            test_manager.stop_test()
-            emit('test_stopped', {}, broadcast=True, namespace='/student')
-            emit('update_students', list(students_sessions.values()), broadcast=True, namespace='/teacher')
-            print("✅ Автоматическая остановка: все активные ученики сдали тест")
-
-
-
+    
     @app.route('/api/login', methods=['POST'])
     def login():
         data = request.get_json() or {}
         username = data.get('username')
         password = data.get('password')
         if login_teacher(username, password):
+            session.permanent = True
             session['logged_in'] = True
             return jsonify({'message': 'Успешный вход'})
         return jsonify({'error': 'Неверный логин или пароль'}), 401
@@ -45,163 +52,139 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         session.clear()
         return jsonify({'message': 'Выход'})
 
-    @app.route('/api/student/register', methods=['POST'])
-    def student_register():
-        data = request.get_json() or {}
+    @app.route('/api/check-login')
+    def check_login():
+        if session.get('logged_in'):
+            return jsonify({'loggedIn': True})
+        return jsonify({'loggedIn': False})
+
+    @socketio.on('student_register', namespace='/student')
+    def handle_student_register(data):
         name = data.get('student_name')
-        if not name:
-            return jsonify({'error': 'Фамилия обязательна'}), 400
+        comp_num = data.get('computer_number')
+        if not name or not comp_num:
+            emit('register_error', {'error': 'Фамилия и номер ПК обязательны'}, namespace='/student')
+            return
         
-        ip = request.remote_addr
-        sid = f"{ip}_{int(time.time() * 1000)}"
-        
+        sid = request.sid
         students_sessions[sid] = {
+            'computer_number': comp_num,
             'name': name,
-            'ip': ip,
+            'ip': request.remote_addr,
             'score': None,
             'grade': None,
             'timestamp': None,
             'connected': True
         }
-        emit('update_students', list(students_sessions.values()), broadcast=True, namespace='/teacher')
-        return jsonify({
-            'message': 'Ученик зарегистрирован',
+        emit('register_success', {
             'active': test_manager.is_test_active(),
-            'variant': test_manager.get_current_variant() if test_manager.is_test_active() else None
-        })
+            'variant': test_manager.get_current_variant()
+        }, namespace='/student')
+        emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
 
-    @app.route('/api/student/submit-result', methods=['POST'])
-    def student_submit():
+    @socketio.on('student_submit', namespace='/student')
+    def handle_student_submit(data):
         if not test_manager.is_test_active():
-            return jsonify({'error': 'Тест завершён'}), 400
+            emit('submit_error', {'error': 'Тест завершён'}, namespace='/student')
+            return
         
-        data = request.get_json() or {}
+        sid = request.sid
+        if sid not in students_sessions:
+            emit('submit_error', {'error': 'Не зарегистрирован'}, namespace='/student')
+            return
+        
         score = data.get('score')
-        student_name = data.get('student_name')  
-        
-        if not student_name or score is None:
-            return jsonify({'error': 'Фамилия и баллы обязательны'}), 400
-        
+        from datetime import datetime
+        students_sessions[sid].update({
+            'score': score,
+            'grade': calculate_grade(score),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+        emit('submit_success', {'grade': students_sessions[sid]['grade']}, namespace='/student')
+        emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
+        check_auto_stop(students_sessions, test_manager, emit)
 
-        found = False
-        for sid, info in students_sessions.items():
-            if info['name'] == student_name:
-                grade = calculate_grade(score)
-                from datetime import datetime
-                students_sessions[sid].update({
-                    'score': score,
-                    'grade': grade,
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                })
-                found = True
-                break
-        
-        if not found:
-            return jsonify({'error': 'Ученик не найден'}), 400
-        
-        emit('update_students', list(students_sessions.values()), broadcast=True, namespace='/teacher')
-        check_auto_stop()
-        return jsonify({'grade': grade})
+    @socketio.on('student_logout', namespace='/student')
+    def handle_student_logout():
+        sid = request.sid
+        if sid in students_sessions:
+            del students_sessions[sid]
+        emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
 
-        
-
-
-    @app.route('/api/start-test', methods=['POST'])
-    def start_test():
+    @socketio.on('start_test', namespace='/teacher')
+    def handle_start_test(data):
         if 'logged_in' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json() or {}
+            return
         variant = data.get('variant')
         if variant not in ['powers', 'squares']:
-            return jsonify({'error': 'Неверный вариант теста'}), 400
-        
+            return
         if test_manager.start_test(variant):
-            emit('test_started', {'variant': variant}, broadcast=True, namespace='/student')
-            return jsonify({'message': f'Тест запущен ({variant})'})
-        return jsonify({'error': 'Нельзя запустить тест. Завершите предыдущий.'}), 400
+            emit('test_started', {'variant': variant}, namespace='/student', broadcast=True)
+            emit('test_started', {'variant': variant}, namespace='/teacher', broadcast=True)
 
-    @app.route('/api/stop-test', methods=['POST'])
-    def stop_test():
+    @socketio.on('stop_test', namespace='/teacher')
+    def handle_stop_test():
         if 'logged_in' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
+            return
         if test_manager.stop_test():
-            emit('test_stopped', {}, broadcast=True, namespace='/student')
-            return jsonify({'message': 'Тест остановлен'})
-        return jsonify({'error': 'Тест не запущен'}), 400
+            # НЕ очищаем students_sessions — ученики остаются в таблице
+            emit('test_stopped', {}, namespace='/student', broadcast=True)
+            emit('test_stopped', {}, namespace='/teacher', broadcast=True)
+            # Обновляем таблицу
+            emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
 
-    @app.route('/api/finalize-test', methods=['POST'])
-    def finalize_test():
+    @socketio.on('finalize_test', namespace='/teacher')
+    def handle_finalize_test():
         if 'logged_in' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
+            return
         test_manager.finalize_test()
-        students_sessions.clear()
-        emit('update_students', [], broadcast=True, namespace='/teacher')
-        return jsonify({'message': 'Тест завершён. Все данные удалены.'})
+        students_sessions.clear()  # ← Очищаем ТОЛЬКО при завершении
+        emit('test_finalized', {}, namespace='/student', broadcast=True)
+        emit('update_students', [], namespace='/teacher', broadcast=True)
 
-    from flask_socketio import disconnect
-
-    @app.route('/api/kick', methods=['POST'])
-    def kick_student():
+    @socketio.on('kick_student', namespace='/teacher')
+    def handle_kick_student(data):
         if 'logged_in' not in session:
-            return jsonify({'error': 'Не авторизован'}), 401
-        
-        data = request.get_json() or {}
+            return
         target_ip = data.get('ip')
-        if not target_ip:
-            return jsonify({'error': 'IP не указан'}), 400
-        
-        sids_to_remove = []
-        for sid, info in students_sessions.items():
+        for sid, info in list(students_sessions.items()):
             if info['ip'] == target_ip:
-                sids_to_remove.append(sid)
-        
-        for sid in sids_to_remove:
-            try:
-                disconnect(sid=sid, namespace='/student')
-            except:
-                pass
+                del students_sessions[sid]
+                try:
+                    emit('kicked_to_login', {}, room=sid, namespace='/student')
+                except:
+                    pass
+                break
+        emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
 
-            del students_sessions[sid]
-            try:
-                emit('kicked', {'message': 'Выгнан!'}, room=sid, namespace='/student')
-            except:
-                pass
-        
-        emit('update_students', list(students_sessions.values()), broadcast=True, namespace='/teacher')
-        return jsonify({'message': 'Ученик выгнан'})
+    @socketio.on('teacher_login', namespace='/teacher')
+    def handle_teacher_login(data):
+        username = data.get('username')
+        password = data.get('password')
+        if login_teacher(username, password):
+            session['logged_in'] = True
+            emit('login_success', namespace='/teacher')
+        else:
+            emit('login_error', {'error': 'Неверный логин или пароль'}, namespace='/teacher')
 
-    @app.route('/api/results')
-    def get_results():
-        return jsonify({'results': list(students_sessions.values())})
-
-    @app.route('/api/test-status')
-    def get_test_status():
-        all_submitted = all(
-            s['score'] is not None for s in students_sessions.values()
-        ) if students_sessions else False
-        
-        return jsonify({
-            'active': test_manager.is_test_active(),
-            'variant': test_manager.get_current_variant(),
-            'finalized': test_manager.is_finalized(),
-            'allSubmitted': all_submitted
-        })
-
-
-    @socketio.on('connect', namespace='/student')
-    def handle_student_connect():
-        pass
+    @socketio.on('teacher_logout', namespace='/teacher')
+    def handle_teacher_logout():
+        session.clear()
+        emit('logout_success', namespace='/teacher')
 
     @socketio.on('connect', namespace='/teacher')
     def handle_teacher_connect():
-        emit('update_students', list(students_sessions.values()))
+        if session.get('logged_in'):
+            emit('test_status', {
+                'active': test_manager.is_test_active(),
+                'variant': test_manager.get_current_variant(),
+                'finalized': test_manager.is_finalized()
+            }, namespace='/teacher')
+            emit('update_students', list(students_sessions.values()), namespace='/teacher')
 
-    @socketio.on('disconnect')
-    def handle_disconnect():
+    @socketio.on('disconnect', namespace='/student')
+    def handle_student_disconnect():
         sid = request.sid
         if sid in students_sessions:
-            students_sessions[sid]['connected'] = False  
-            emit('update_students', list(students_sessions.values()), broadcast=True, namespace='/teacher')
+            students_sessions[sid]['connected'] = False
+            emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)

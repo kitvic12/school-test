@@ -10,48 +10,49 @@ class StudentTestSystem {
         this.usedQuestions = new Set();
     }
 
-    async checkTestStatus() {
-        try {
-            const response = await fetch('/api/test-status');
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            return { active: false, variant: null, finalized: false };
-        }
-    }
-
-    async register(studentName) {
-        try {
-            const response = await fetch('/api/student/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ student_name: studentName })
+    async register(studentName, computerNumber) {
+        return new Promise((resolve) => {
+            socket.emit('student_register', { 
+                student_name: studentName, 
+                computer_number: computerNumber 
             });
-            const result = await response.json();
-            if (response.ok) {
+            
+            const handleSuccess = (data) => {
+                socket.off('register_error', handleError);
                 this.studentName = studentName;
                 this.registered = true;
-            }
-            return result;
-        } catch (error) {
-            return { error: 'Ошибка соединения' };
-        }
+                this.testActive = data.active;
+                this.testVariant = data.variant;
+                resolve({ success: true });
+            };
+            
+            const handleError = (data) => {
+                socket.off('register_success', handleSuccess);
+                resolve({ error: data.error });
+            };
+            
+            socket.on('register_success', handleSuccess);
+            socket.on('register_error', handleError);
+        });
     }
 
     async submitResult(score) {
-        try {
-            const response = await fetch('/api/student/submit-result', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    student_name: this.studentName,
-                    score: score
-                })
-            });
-            return await response.json();
-        } catch (error) {
-            return { error: 'Ошибка соединения' };
-        }
+        return new Promise((resolve) => {
+            socket.emit('student_submit', { score });
+            
+            const handleSuccess = (data) => {
+                socket.off('submit_error', handleError);
+                resolve({ grade: data.grade });
+            };
+            
+            const handleError = (data) => {
+                socket.off('submit_success', handleSuccess);
+                resolve({ error: data.error });
+            };
+            
+            socket.on('submit_success', handleSuccess);
+            socket.on('submit_error', handleError);
+        });
     }
 
     generateUniqueQuestion() {
@@ -61,15 +62,33 @@ class StudentTestSystem {
         while (attempts < maxAttempts) {
             let questionHtml, answer, key;
             if (this.testVariant === 'powers') {
-                const exponent = Math.floor(Math.random() * 15);
-                questionHtml = `Чему равно 2<sup>${exponent}</sup>?`;
-                answer = Math.pow(2, exponent);
-                key = `powers_${exponent}`;
-            } else {
-            const number = Math.floor(Math.random() * 21) + 10;
-                questionHtml = `Чему равен квадрат числа ${number}<sup>2</sup>?`;
-                answer = number * number;
-                key = `squares_${number}`;
+                const type = Math.random() > 0.5 ? 'direct' : 'reverse';
+                if (type === 'direct') {
+                    const exp = Math.floor(Math.random() * 15);
+                    questionHtml = `Чему равно 2<sup>${exp}</sup>?`;
+                    answer = Math.pow(2, exp);
+                    key = `p_dir_${exp}`;
+                } else {
+                    const exp = Math.floor(Math.random() * 15); 
+                    const res = Math.pow(2, exp);
+                    questionHtml = `2<sup>Х</sup> = ${res}, Х = ?`;
+                    answer = exp;
+                    key = `p_rev_${res}`;
+                }
+            } else { 
+                const type = Math.random() > 0.5 ? 'direct' : 'reverse';
+                if (type === 'direct') {
+                    const num = Math.floor(Math.random() * 21) + 10; 
+                    questionHtml = `Чему равен квадрат числа ${num}<sup>2</sup>?`;
+                    answer = num * num;
+                    key = `s_dir_${num}`;
+                } else {
+                    const base = Math.floor(Math.random() * 21) + 10; 
+                    const res = Math.pow(base, 2);
+                    questionHtml = `Чему равен корень из ${res}?`;
+                    answer = base;
+                    key = `s_rev_${res}`;
+                }
             }
             if (!this.usedQuestions.has(key)) {
                 this.usedQuestions.add(key);
@@ -82,6 +101,7 @@ class StudentTestSystem {
     }
 }
 
+const socket = io('/student');
 const studentSystem = new StudentTestSystem();
 
 let score = 0;
@@ -163,46 +183,56 @@ async function finishTest() {
     document.getElementById('result-block').style.display = 'block';
 }
 
-async function showFinalResults() {
-    const response = await fetch('/api/results');
-    const data = await response.json();
-    const studentResult = data.results.find(s => s.name === studentSystem.studentName);
-    if (studentResult && studentResult.score !== null) {
-        document.getElementById('main-title').textContent = 'Результаты';
-        document.getElementById('result-message').textContent = 
-            `✅ Тест завершён!\nБаллы: ${studentResult.score}`;
-        document.getElementById('test-block').style.display = 'none';
-        document.getElementById('waiting-block').style.display = 'none';
-        document.getElementById('result-block').style.display = 'block';
-    }
-}
-
 document.addEventListener('DOMContentLoaded', function () {
-    // Элементы
     const regBlock = document.getElementById('registration-block');
     const waitBlock = document.getElementById('waiting-block');
     const testBlock = document.getElementById('test-block');
     const resultBlock = document.getElementById('result-block');
     const title = document.getElementById('main-title');
     const nameInput = document.getElementById('student-name');
+    const compInput = document.getElementById('computer-number');
     const registerBtn = document.getElementById('register-btn');
     const displayName = document.getElementById('display-name');
     const startBtn = document.getElementById('start-btn');
+    const logoutBtn = document.getElementById('logout-student-btn');
     const answerInput = document.getElementById('answer');
     const submitBtn = document.getElementById('submit-btn');
-    if (!registerBtn || !startBtn) {
-        console.error('❌ Не найдены кнопки регистрации или старта');
-        return;
-    }
 
+    // Socket.IO события
+    socket.on('connect', () => {
+        console.log('✅ Ученик подключён');
+    });
 
+    socket.on('test_started', (data) => {
+        studentSystem.testActive = true;
+        studentSystem.testVariant = data.variant;
+        if (studentSystem.registered) {
+            startBtn.style.display = 'inline-block';
+            logoutBtn.style.display = 'inline-block';
+        }
+    });
+
+    socket.on('test_stopped', () => {
+        studentSystem.testActive = false;
+        if (questionCount >= TOTAL_QUESTIONS) {
+            showFinalResults();
+        }
+    });
+
+    socket.on('kicked_to_login', () => {
+        alert('Вас выгнали!');
+        window.location.href = '/';
+    });
+
+    // Регистрация
     registerBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
-        if (!name) {
-            alert('Введите фамилию');
+        const compNum = compInput.value.trim();
+        if (!name || !compNum) {
+            alert('Введите фамилию и номер компьютера');
             return;
         }
-        const result = await studentSystem.register(name);
+        const result = await studentSystem.register(name, compNum);
         if (result.error) {
             alert(result.error);
             return;
@@ -212,15 +242,12 @@ document.addEventListener('DOMContentLoaded', function () {
         regBlock.style.display = 'none';
         waitBlock.style.display = 'block';
         title.textContent = 'Ожидание';
-        const status = await studentSystem.checkTestStatus();
-        studentSystem.testActive = status.active;
-        studentSystem.testVariant = status.variant;
         if (studentSystem.testActive) {
             startBtn.style.display = 'inline-block';
+            logoutBtn.style.display = 'inline-block';
         }
     });
 
-    // Старт теста
     startBtn.addEventListener('click', () => {
         if (!studentSystem.registered || !studentSystem.testActive) return;
         waitBlock.style.display = 'none';
@@ -232,7 +259,6 @@ document.addEventListener('DOMContentLoaded', function () {
         generateQuestion();
     });
 
-    // Отправка ответа
     submitBtn.addEventListener('click', () => {
         if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS || timeLeft <= 0) return;
         const userAnswer = parseInt(answerInput.value.trim());
@@ -251,25 +277,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Проверка статуса каждую секунду
-    setInterval(async () => {
-        const status = await studentSystem.checkTestStatus();
-        
-        // Обновляем статус в системе
-        studentSystem.testActive = status.active;
-        studentSystem.testVariant = status.variant;
-        studentSystem.testFinalized = status.finalized;
+    logoutBtn.addEventListener('click', () => {
+        if (!confirm('Выйти из теста?')) return;
+        socket.emit('student_logout');
+    });
 
-        // Управление кнопкой старта
-        if (studentSystem.registered && studentSystem.testActive && !studentSystem.testFinalized) {
-            startBtn.style.display = 'inline-block';
-        } else {
-            startBtn.style.display = 'none';
-        }
-
-        // Показ результатов после сдачи
-        if (!studentSystem.testActive && !studentSystem.testFinalized && questionCount >= TOTAL_QUESTIONS) {
-            showFinalResults();
-        }
-    }, 1000);
+    function showFinalResults() {
+    }
 });

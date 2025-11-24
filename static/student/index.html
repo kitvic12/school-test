@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загадки</title>
+    <title>Тестирование</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/student/script.js" defer></script>
-    <link rel="stylesheet" href="/student/style.css">
+    <script src="./script.js"></script>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <div id="answer-status"></div>
@@ -14,14 +14,15 @@
     <main>
         <h1 id="main-title">Регистрация</h1>
         <div id="registration-block">
-            <p>Введите вашу фамилию</p>
             <p><input id="student-name" type="text" placeholder="Фамилия"></p>
+            <p><input id="computer-number" type="text" placeholder="Аудитория-номер компа"></p>
             <p><button id="register-btn">Зарегистрироваться</button></p>
         </div>
         <div id="waiting-block" style="display: none;">
             <p>Вы зарегистрированы как: <strong id="display-name"></strong></p>
             <p>Ожидание запуска теста учителем...</p>
             <button id="start-btn" style="display: none;">Приступить к тесту</button>
+            <button id="logout-student-btn" class="logout-student-btn" style="display: none; background: #f44336; color: white;">Выйти</button>
         </div>
         <div id="test-block" style="display: none;">
             <p id="question"></p>
@@ -32,5 +33,6 @@
             <p id="result-message"></p>
         </div>
     </main>
+    <script src="/student/script.js" defer></script>
 </body>
 </html>
