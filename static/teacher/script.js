@@ -114,7 +114,7 @@ function loadResults(students) {
     const tbody = document.getElementById('resultsBody');
     tbody.innerHTML = '';
     if (!students || students.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">Нет учеников</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет учеников</td></tr>';
         return;
     }
     
@@ -123,6 +123,7 @@ function loadResults(students) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${s.computer_number}</td>
+            <td>${s.name}</td>
             <td>${s.ip}</td>
             <td>${correct}/10</td>
             <td>${s.score != null ? s.score : '-'}</td>
@@ -154,9 +155,27 @@ document.getElementById('startSquares').addEventListener('click', () => {
 
 document.getElementById('stopBtn').addEventListener('click', () => {
     if (confirm('Остановить тест?')) {
+        downloadResultsAsCSV();
         teacherSocket.emit('stop_test');
     }
 });
+
+function downloadResultsAsCSV() {
+    const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
+    if (rows.length === 0) return;
+    
+    const csv = rows.map(row => {
+        const cells = row.querySelectorAll('td, th');
+        return Array.from(cells).slice(0, -1).map(cell => `"${cell.textContent}"`).join(',');
+    }).join('\n');
+    
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', `результаты-${date}.csv`);
+    link.click();
+}
 
 document.getElementById('finalizeBtn').addEventListener('click', () => {
     if (confirm('ЗАВЕРШИТЬ тест? Все данные будут УДАЛЕНЫ!')) {

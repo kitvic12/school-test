@@ -14,11 +14,11 @@ def get_local_ip():
 app = Flask(__name__)
 app.secret_key = 'local-test-secret'
 
-# Настройка сессий для работы с куками
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',  # Для HTTP
-    SESSION_COOKIE_SECURE=False,    # Не HTTPS
+    SESSION_COOKIE_SAMESITE='Lax',  
+    SESSION_COOKIE_SECURE=False,    
     PERMANENT_SESSION_LIFETIME=3600
 )
 

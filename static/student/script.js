@@ -8,6 +8,7 @@ class StudentTestSystem {
         this.testVariant = null;
         this.testFinalized = false;
         this.usedQuestions = new Set();
+        this.computerNumber = '';
     }
 
     async register(studentName, computerNumber) {
@@ -20,9 +21,17 @@ class StudentTestSystem {
             const handleSuccess = (data) => {
                 socket.off('register_error', handleError);
                 this.studentName = studentName;
+                this.computerNumber = computerNumber;
                 this.registered = true;
                 this.testActive = data.active;
                 this.testVariant = data.variant;
+                
+                localStorage.setItem('student_session', JSON.stringify({
+                    name: studentName,
+                    computerNumber: computerNumber,
+                    registered: true
+                }));
+                
                 resolve({ success: true });
             };
             
@@ -64,14 +73,14 @@ class StudentTestSystem {
             if (this.testVariant === 'powers') {
                 const type = Math.random() > 0.5 ? 'direct' : 'reverse';
                 if (type === 'direct') {
-                    const exp = Math.floor(Math.random() * 15);
+                    const exp = Math.floor(Math.random() * 15); 
                     questionHtml = `Чему равно 2<sup>${exp}</sup>?`;
                     answer = Math.pow(2, exp);
                     key = `p_dir_${exp}`;
                 } else {
                     const exp = Math.floor(Math.random() * 15); 
                     const res = Math.pow(2, exp);
-                    questionHtml = `2<sup>Х</sup> = ${res}, Х = ?`;
+                    questionHtml = `В какую степень нужно возвести 2, чтобы получить ${res}?`;
                     answer = exp;
                     key = `p_rev_${res}`;
                 }
@@ -198,7 +207,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const answerInput = document.getElementById('answer');
     const submitBtn = document.getElementById('submit-btn');
 
-    // Socket.IO события
+
+
+    const savedData = localStorage.getItem('student_session');
+    if (savedData) {
+        const data = JSON.parse(savedData);
+        studentSystem.studentName = data.name;
+        studentSystem.computerNumber = data.computerNumber;
+        studentSystem.registered = data.registered;
+        
+        displayName.textContent = data.name;
+        regBlock.style.display = 'none';
+        waitBlock.style.display = 'block';
+        title.textContent = 'Ожидание';
+    }
+
+
     socket.on('connect', () => {
         console.log('✅ Ученик подключён');
     });
@@ -208,23 +232,37 @@ document.addEventListener('DOMContentLoaded', function () {
         studentSystem.testVariant = data.variant;
         if (studentSystem.registered) {
             startBtn.style.display = 'inline-block';
-            logoutBtn.style.display = 'inline-block';
+            logoutBtn.style.display = 'none'; 
         }
     });
 
     socket.on('test_stopped', () => {
         studentSystem.testActive = false;
-        if (questionCount >= TOTAL_QUESTIONS) {
-            showFinalResults();
-        }
+
+        testBlock.style.display = 'none';
+        resultBlock.style.display = 'none';
+        waitBlock.style.display = 'block';
+        title.textContent = 'Ожидание';
+        logoutBtn.style.display = 'inline-block'; 
+    });
+
+    socket.on('test_finalized', () => {
+        localStorage.removeItem('student_session');
+        window.location.href = '/';
     });
 
     socket.on('kicked_to_login', () => {
         alert('Вас выгнали!');
+        localStorage.removeItem('student_session');
         window.location.href = '/';
     });
 
-    // Регистрация
+
+    if (studentSystem.registered) {
+        logoutBtn.style.display = 'inline-block';
+    }
+
+ 
     registerBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
         const compNum = compInput.value.trim();
@@ -237,14 +275,13 @@ document.addEventListener('DOMContentLoaded', function () {
             alert(result.error);
             return;
         }
-        studentSystem.studentName = name;
         displayName.textContent = name;
         regBlock.style.display = 'none';
         waitBlock.style.display = 'block';
         title.textContent = 'Ожидание';
+        logoutBtn.style.display = 'inline-block';
         if (studentSystem.testActive) {
             startBtn.style.display = 'inline-block';
-            logoutBtn.style.display = 'inline-block';
         }
     });
 
@@ -253,14 +290,32 @@ document.addEventListener('DOMContentLoaded', function () {
         waitBlock.style.display = 'none';
         testBlock.style.display = 'block';
         title.textContent = 'Тестирование';
+        logoutBtn.style.display = 'none'; 
         score = 0;
         questionCount = 0;
         studentSystem.usedQuestions.clear();
         generateQuestion();
     });
 
+
+    answerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            submitBtn.click();
+        }
+    });
+
+
+    answerInput.setAttribute('autocomplete', 'off');
+    answerInput.setAttribute('autocorrect', 'off');
+    answerInput.setAttribute('autocapitalize', 'off');
+    answerInput.setAttribute('spellcheck', 'false');
+
     submitBtn.addEventListener('click', () => {
-        if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS || timeLeft <= 0) return;
+        if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS) return;
+        if (timeLeft <= 0) {
+            alert('Время вышло!');
+            return;
+        }
         const userAnswer = parseInt(answerInput.value.trim());
         if (isNaN(userAnswer)) {
             alert('Введите число');

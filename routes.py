@@ -18,7 +18,6 @@ def count_correct(score):
 def check_auto_stop(students_sessions, test_manager, emit_func):
     if not test_manager.is_test_active():
         return
-    # Проверяем всех учеников, кто сдал
     active_students = [s for s in students_sessions.values() if s.get('connected', True)]
     if not active_students:
         return
@@ -30,7 +29,6 @@ def check_auto_stop(students_sessions, test_manager, emit_func):
             'message': 'Тест автоматически остановлен: все ученики сдали'
         }, namespace='/teacher', broadcast=True)
         emit_func('test_stopped', {}, namespace='/student', broadcast=True)
-        # Отправляем ВСЕХ учеников, даже тех, кто уже сдал
         emit_func('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
         print("✅ Автоостановка: все ученики сдали, но данные остались")
 
@@ -127,10 +125,8 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if 'logged_in' not in session:
             return
         if test_manager.stop_test():
-            # НЕ очищаем students_sessions — ученики остаются в таблице
             emit('test_stopped', {}, namespace='/student', broadcast=True)
             emit('test_stopped', {}, namespace='/teacher', broadcast=True)
-            # Обновляем таблицу
             emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
 
     @socketio.on('finalize_test', namespace='/teacher')
@@ -138,7 +134,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if 'logged_in' not in session:
             return
         test_manager.finalize_test()
-        students_sessions.clear()  # ← Очищаем ТОЛЬКО при завершении
+        students_sessions.clear()  
         emit('test_finalized', {}, namespace='/student', broadcast=True)
         emit('update_students', [], namespace='/teacher', broadcast=True)
 
