@@ -1,112 +1,99 @@
-let isLoggedIn = false;
 let teacherSocket = null;
 
-console.log("✅ Скрипт учительской загружен");
+document.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/check-login', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.loggedIn) {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('teacherSection').style.display = 'block';
+                initSocket();
+            } else {
+                document.getElementById('loginSection').style.display = 'block';
+            }
+        });
 
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const res = await fetch('/api/check-login', { credentials: 'include' });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass }),
+            credentials: 'include'
+        });
         const data = await res.json();
-        if (data.loggedIn) {
+        if (res.ok) {
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('teacherSection').style.display = 'block';
             initSocket();
+        } else {
+            document.getElementById('loginError').textContent = data.error;
         }
-    } catch (err) {
-        document.getElementById('loginSection').style.display = 'block';
-    }
+    });
 });
 
+function initSocket() {
+    teacherSocket = io('/teacher');
 
-function setupSocketHandlers() {
-    teacherSocket.on('test_status', (status) => {
-        updateButtons(status);
-        if (status.active) {
-            document.getElementById('activeTestInfo').style.display = 'block';
-            document.getElementById('current-variant').textContent = 
-                status.variant === 'powers' ? 'Степени двойки' : 'Квадраты чисел';
-        } else {
-            document.getElementById('activeTestInfo').style.display = 'none';
-        }
+    teacherSocket.on('connect', () => {
+        console.log('✅ Учитель подключён');
+        teacherSocket.emit('get_students');
     });
 
-    teacherSocket.on('test_started', (data) => {
-        updateButtons({active: true, variant: data.variant, finalized: false});
-        document.getElementById('activeTestInfo').style.display = 'block';
+
+    teacherSocket.on('all_students_submitted', (data) => {
+        alert('⚠️ ' + data.message);
     });
 
-    teacherSocket.on('test_stopped', (data) => {
-        if (data?.reason === 'auto') {
-            alert('⚠️ ' + data.message);
-        }
-        updateButtons({active: false, finalized: false});
-        document.getElementById('activeTestInfo').style.display = 'none';
-        loadResults();
-    });
 
     teacherSocket.on('update_students', (students) => {
         loadResults(students);
     });
+
+
+    teacherSocket.on('test_started', (data) => {
+        updateButtons({active: true, variant: data.variant, finalized: false});
+        document.getElementById('activeTestInfo').style.display = 'block';
+        document.getElementById('current-variant').textContent = 
+            data.variant === 'powers' ? 'Степени двойки' : 'Квадраты чисел';
+    });
+
+
+    teacherSocket.on('test_stopped', () => {
+        updateButtons({active: false, finalized: false});
+        document.getElementById('activeTestInfo').style.display = 'none';
+    });
 }
-
-
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-    console.log("🔧 Попытка подключения к серверу...");
-
-
-    teacherSocket = io('/teacher');
-
-
-    teacherSocket.on('connect', () => {
-        console.log("🔗 Подключён к /teacher");
-        teacherSocket.emit('teacher_login', { username: user, password: pass });
-    });
-
-
-    teacherSocket.on('login_success', () => {
-        console.log("✅ Успешный вход");
-        isLoggedIn = true;
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('teacherSection').style.display = 'block';
-        setupSocketHandlers();  
-    });
-
-
-    teacherSocket.on('login_error', (data) => {
-        console.log("❌ Ошибка входа:", data.error);
-        document.getElementById('loginError').textContent = data.error;
-    });
-
-
-    teacherSocket.on('connect_error', (err) => {
-        console.error("❌ Ошибка подключения:", err);
-    });
-});
 
 function updateButtons(status) {
     const startPowers = document.getElementById('startPowers');
     const startSquares = document.getElementById('startSquares');
     const stopBtn = document.getElementById('stopBtn');
     const finalizeBtn = document.getElementById('finalizeBtn');
+    const activeInfo = document.getElementById('activeTestInfo');
 
     if (status.active) {
         startPowers.disabled = true;
         startSquares.disabled = true;
         stopBtn.style.display = 'inline-block';
         finalizeBtn.style.display = 'none';
+        activeInfo.style.display = 'block';
     } else if (!status.active && !status.finalized) {
         startPowers.disabled = false;
         startSquares.disabled = false;
         stopBtn.style.display = 'none';
         finalizeBtn.style.display = 'inline-block';
+        activeInfo.style.display = 'none';
     } else {
         startPowers.disabled = false;
         startSquares.disabled = false;
         stopBtn.style.display = 'none';
         finalizeBtn.style.display = 'none';
+        activeInfo.style.display = 'none';
     }
 }
 
@@ -155,27 +142,9 @@ document.getElementById('startSquares').addEventListener('click', () => {
 
 document.getElementById('stopBtn').addEventListener('click', () => {
     if (confirm('Остановить тест?')) {
-        downloadResultsAsCSV();
         teacherSocket.emit('stop_test');
     }
 });
-
-function downloadResultsAsCSV() {
-    const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
-    if (rows.length === 0) return;
-    
-    const csv = rows.map(row => {
-        const cells = row.querySelectorAll('td, th');
-        return Array.from(cells).slice(0, -1).map(cell => `"${cell.textContent}"`).join(',');
-    }).join('\n');
-    
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-    link.setAttribute('href', URL.createObjectURL(blob));
-    link.setAttribute('download', `результаты-${date}.csv`);
-    link.click();
-}
 
 document.getElementById('finalizeBtn').addEventListener('click', () => {
     if (confirm('ЗАВЕРШИТЬ тест? Все данные будут УДАЛЕНЫ!')) {
@@ -184,7 +153,37 @@ document.getElementById('finalizeBtn').addEventListener('click', () => {
     }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    teacherSocket.emit('teacher_logout');
+document.getElementById('downloadBtn').addEventListener('click', downloadResultsAsCSV);
+
+function downloadResultsAsCSV() {
+    const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
+    if (rows.length === 0) {
+        alert('Нет данных для скачивания');
+        return;
+    }
+
+    let csvContent = '"№ ПК","Фамилия","IP","Правильных","Баллы","Оценка","Действие"\n';
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            const rowData = Array.from(cells).slice(0, -1)
+                .map(cell => `"${cell.textContent.replace(/"/g, '""')}"`)
+                .join(',');
+            csvContent += rowData + '\n';
+        }
+    });
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', `результаты_${dateStr}.csv`);
+    link.click();
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('/api/logout', {method: 'POST', credentials: 'include'});
     window.location.reload();
 });

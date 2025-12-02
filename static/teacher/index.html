@@ -23,8 +23,8 @@
         <main class="login-form">
             <h1>Вход для учителя</h1>
             <form id="loginForm">
-                <p><input type="text" id="username" placeholder="Логин" required value="teacherEaVi"></p>
-                <p><input type="password" id="password" placeholder="Пароль" required value="ChekingTest"></p>
+                <p><input type="text" id="username" placeholder="Логин" required></p>
+                <p><input type="password" id="password" placeholder="Пароль" required></p>
                 <p><button type="submit">Войти</button></p>
             </form>
             <div id="loginError" style="color: red; margin-top: 15px;"></div>
@@ -34,15 +34,14 @@
     <div id="teacherSection" style="display: none;">
         <main class="teacher-panel">
             <h1>📊 Панель учителя</h1>
-            
             <div class="controls">
                 <button id="startPowers" class="variant-btn">🎯 Степени двойки</button>
                 <button id="startSquares" class="variant-btn">🔢 Квадраты чисел</button>
                 <button id="stopBtn" class="stop-btn" style="display: none;">⏹️ Остановить тест</button>
+                <button id="downloadBtn" class="download-btn">📥 Скачать CSV</button> 
                 <button id="finalizeBtn" class="finalize-btn" style="display: none;">🗑️ Завершить тест</button>
                 <button id="logoutBtn" class="logout-btn">Выйти</button>
             </div>
-
             <div id="activeTestInfo" class="status-info" style="display: none;">
                 <h3>✅ Тестирование запущено</h3>
                 <p>Ученики проходят тест. Результаты обновляются в реальном времени.</p>

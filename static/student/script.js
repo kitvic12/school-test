@@ -1,3 +1,5 @@
+localStorage.removeItem('student_session');
+
 const QUESTION_TIME = 10;
 
 class StudentTestSystem {
@@ -84,10 +86,10 @@ class StudentTestSystem {
                     answer = exp;
                     key = `p_rev_${res}`;
                 }
-            } else { 
+            } else {
                 const type = Math.random() > 0.5 ? 'direct' : 'reverse';
                 if (type === 'direct') {
-                    const num = Math.floor(Math.random() * 21) + 10; 
+                    const num = Math.floor(Math.random() * 21) + 10;
                     questionHtml = `Чему равен квадрат числа ${num}<sup>2</sup>?`;
                     answer = num * num;
                     key = `s_dir_${num}`;
@@ -142,8 +144,16 @@ function startQuestionTimer() {
 }
 
 function handleTimeUp() {
-    questionCount++;
-    showAnswerFeedback(false, 'Время вышло!');
+    const lastInput = parseInt(document.getElementById('answer').value.trim());
+    if (!isNaN(lastInput) && lastInput === currentCorrectAnswer) {
+        const points = (attemptCount === 1) ? 10 : 5;
+        score += points;
+        questionCount++;
+        showAnswerFeedback(true, 'Верный ответ!');
+    } else {
+        questionCount++;
+        showAnswerFeedback(false, 'Время вышло!');
+    }
 }
 
 function generateQuestion() {
@@ -208,21 +218,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const submitBtn = document.getElementById('submit-btn');
 
 
-
-    const savedData = localStorage.getItem('student_session');
-    if (savedData) {
-        const data = JSON.parse(savedData);
-        studentSystem.studentName = data.name;
-        studentSystem.computerNumber = data.computerNumber;
-        studentSystem.registered = data.registered;
-        
-        displayName.textContent = data.name;
-        regBlock.style.display = 'none';
-        waitBlock.style.display = 'block';
-        title.textContent = 'Ожидание';
-    }
-
-
     socket.on('connect', () => {
         console.log('✅ Ученик подключён');
     });
@@ -231,24 +226,27 @@ document.addEventListener('DOMContentLoaded', function () {
         studentSystem.testActive = true;
         studentSystem.testVariant = data.variant;
         if (studentSystem.registered) {
-            startBtn.style.display = 'inline-block';
-            logoutBtn.style.display = 'none'; 
+            if (questionCount < TOTAL_QUESTIONS) {
+                startBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+            } else {
+                startBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-block';
+            }
         }
     });
 
-    socket.on('test_stopped', () => {
-        studentSystem.testActive = false;
-
+    socket.on('test_stopped', (data) => {
+    studentSystem.testActive = false;
+    if (questionCount >= TOTAL_QUESTIONS) {
+        finishTest();
+    } else {
         testBlock.style.display = 'none';
         resultBlock.style.display = 'none';
         waitBlock.style.display = 'block';
-        title.textContent = 'Ожидание';
-        logoutBtn.style.display = 'inline-block'; 
-    });
-
-    socket.on('test_finalized', () => {
-        localStorage.removeItem('student_session');
-        window.location.href = '/';
+        title.textContent = `Ожидание... Баллы: ${Math.min(100, Math.max(0, Math.round(score)))}`;
+        logoutBtn.style.display = 'inline-block';
+    }
     });
 
     socket.on('kicked_to_login', () => {
@@ -258,11 +256,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    if (studentSystem.registered) {
-        logoutBtn.style.display = 'inline-block';
-    }
-
- 
     registerBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
         const compNum = compInput.value.trim();
@@ -275,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
             alert(result.error);
             return;
         }
+        studentSystem.studentName = name;
         displayName.textContent = name;
         regBlock.style.display = 'none';
         waitBlock.style.display = 'block';
@@ -290,20 +284,17 @@ document.addEventListener('DOMContentLoaded', function () {
         waitBlock.style.display = 'none';
         testBlock.style.display = 'block';
         title.textContent = 'Тестирование';
-        logoutBtn.style.display = 'none'; 
         score = 0;
         questionCount = 0;
         studentSystem.usedQuestions.clear();
         generateQuestion();
     });
 
-
     answerInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             submitBtn.click();
         }
     });
-
 
     answerInput.setAttribute('autocomplete', 'off');
     answerInput.setAttribute('autocorrect', 'off');
@@ -336,7 +327,4 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!confirm('Выйти из теста?')) return;
         socket.emit('student_logout');
     });
-
-    function showFinalResults() {
-    }
 });
