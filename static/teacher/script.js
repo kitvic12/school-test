@@ -178,17 +178,26 @@ function loadResults(students) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет учеников</td></tr>';
         return;
     }
-    
+     
+ 
+function escapeOutput(toOutput){
+    return toOutput.replace(/\&/g, '&amp;')
+        .replace(/\</g, '&lt;')
+        .replace(/\>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/\'/g, '&#x27;')
+        .replace(/\//g, '&#x2F;');
+}
     students.forEach(s => {
         const correct = s.score ? Math.min(10, Math.floor(s.score / 10)) : 0;
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${s.computer_number}</td>
-            <td>${s.name}</td>
-            <td>${s.ip}</td>
+            <td>${escapeOutput(s.computer_number)}</td>
+            <td>${escapeOutput(s.name)}</td>
+            <td>${escapeOutput(s.ip)}</td>
             <td>${correct}/10</td>
-            <td>${s.score != null ? s.score : '-'}</td>
-            <td>${s.grade || '-'}</td>
+            <td>${escapeOutput(s.score != null ? s.score : '-') }</td>
+            <td>${escapeOutput(s.grade || '-') }</td>
             <td><button class="kick-btn" onclick="kick('${s.ip}')">Выгнать</button></td>
         `;
         tbody.appendChild(row);
