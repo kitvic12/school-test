@@ -210,10 +210,7 @@ document.getElementById('startPowers').addEventListener('click', () => {
 
 document.getElementById('startSquares').addEventListener('click', () => {
     if (confirm('Запустить тест "Квадраты чисел"?')) {
-        console.log("blaaaaaaaaaaaaaaaaaaaaaaaaaat")
-        teacherSocket.emit('start_test', {variant: 'squares'});
-        console.log("sukaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    }
+        teacherSocket.emit('start_test', {variant: 'squares'})}
 });
 
 document.getElementById('stopBtn').addEventListener('click', () => {
