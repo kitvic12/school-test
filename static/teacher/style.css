@@ -118,6 +118,7 @@ table {
     padding: 15px 30px;
     font-size: 18px;
     border: 2px solid white;
+    
 }
 
 .variant-btn:hover {
@@ -237,17 +238,4 @@ h3 {
     align-self: center;
 }
 
-.download-btn {
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px 24px;
-    border-radius: 20px;
-    border: 1px solid white;
-    cursor: pointer;
-    font-size: 16px;
-    margin: 5px;
-}
 
-.download-btn:hover {
-    background-color: #45a049;
-}

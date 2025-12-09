@@ -1,4 +1,51 @@
 let teacherSocket = null;
+const download_results = true;
+
+
+
+function getMoscowTimeString() {
+    const now = new Date();
+    const moscowTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+    const year = moscowTime.getUTCFullYear();
+    const month = String(moscowTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(moscowTime.getUTCDate()).padStart(2, '0');
+    const hours = String(moscowTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(moscowTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(moscowTime.getUTCSeconds()).padStart(2, '0');
+    
+    return `${year}.${month}.${day}_${hours}-${minutes}-${seconds}`;
+}
+
+
+
+
+function downloadResultsAsCSV() {
+    if (!download_results) {alert("Результат загружен"); return}
+    const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
+    if (rows.length === 0) {
+        alert('Нет данных для скачивания');
+        return;
+    }
+
+    let csvContent = '"№ ПК","Фамилия","IP","Правильных","Баллы","Оценка","Действие"\n';
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 0) {
+            const rowData = Array.from(cells).slice(0, -1)
+                .map(cell => `"${cell.textContent.replace(/"/g, '""')}"`)
+                .join(',');
+            csvContent += rowData + '\n';
+        }
+    });
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const dateStr = getMoscowTimeString();
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', `результаты_${dateStr}.csv`);
+    link.click();
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     fetch('/api/check-login', { credentials: 'include' })
@@ -36,6 +83,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+
+
+function updateButtons(status) {
+    const startPowers = document.getElementById('startPowers');
+    const startSquares = document.getElementById('startSquares');
+    const stopBtn = document.getElementById('stopBtn');
+    const finalizeBtn = document.getElementById('finalizeBtn');
+    const activeInfo = document.getElementById('activeTestInfo');
+    const variantBtn = document.getElementById('variant-btns');
+    const newBtn = document.getElementById('newBtn');
+
+    if (status.active) {
+        startPowers.disabled = true;
+        startSquares.disabled = true;
+        stopBtn.style.display = 'inline-block';
+        finalizeBtn.style.display = 'none';
+        activeInfo.style.display = 'block';
+        variantBtn.style.display = 'none'; 
+        newBtn.style.display = 'none';
+        
+    } else if (!status.active && !status.finalized) {
+        startPowers.disabled = false;
+        startSquares.disabled = false;
+        stopBtn.style.display = 'none';
+        finalizeBtn.style.display = 'inline-block';
+        activeInfo.style.display = 'none';
+        variantBtn.style.display = 'none';
+        newBtn.style.display = 'inline-block';
+
+    } else if (!status.active && status.finalized) {
+        startPowers.disabled = false;
+        startSquares.disabled = false;
+        stopBtn.style.display = 'none';
+        finalizeBtn.style.display = 'none';
+        activeInfo.style.display = 'none';
+        variantBtn.style.display = 'block';
+        newBtn.style.display = 'none';
+
+    } else {
+        startPowers.disabled = false;
+        startSquares.disabled = false;
+        stopBtn.style.display = 'none';
+        finalizeBtn.style.display = 'none';
+        activeInfo.style.display = 'none';
+        variantBtn.style.display = 'block';
+        newBtn.style.display = 'none';
+    }
+}
+
+
+
+
 function initSocket() {
     teacherSocket = io('/teacher');
 
@@ -46,7 +145,9 @@ function initSocket() {
 
 
     teacherSocket.on('all_students_submitted', (data) => {
-        alert('⚠️ ' + data.message);
+        alert("Все ученики сдали тест, он автоматически остановлен.");
+        teacherSocket.emit('stop_test');
+        downloadResultsAsCSV();        
     });
 
 
@@ -58,44 +159,17 @@ function initSocket() {
     teacherSocket.on('test_started', (data) => {
         updateButtons({active: true, variant: data.variant, finalized: false});
         document.getElementById('activeTestInfo').style.display = 'block';
-        document.getElementById('current-variant').textContent = 
-            data.variant === 'powers' ? 'Степени двойки' : 'Квадраты чисел';
-    });
+        document.getElementById('what_open').textContent = `На данный момент открыт вариант "${data.variant === 'powers' ? 'Степени двойки' : 'Квадраты чисел'}". Результаты обновляются автоматически.`});
 
 
     teacherSocket.on('test_stopped', () => {
         updateButtons({active: false, finalized: false});
         document.getElementById('activeTestInfo').style.display = 'none';
     });
+
+
 }
 
-function updateButtons(status) {
-    const startPowers = document.getElementById('startPowers');
-    const startSquares = document.getElementById('startSquares');
-    const stopBtn = document.getElementById('stopBtn');
-    const finalizeBtn = document.getElementById('finalizeBtn');
-    const activeInfo = document.getElementById('activeTestInfo');
-
-    if (status.active) {
-        startPowers.disabled = true;
-        startSquares.disabled = true;
-        stopBtn.style.display = 'inline-block';
-        finalizeBtn.style.display = 'none';
-        activeInfo.style.display = 'block';
-    } else if (!status.active && !status.finalized) {
-        startPowers.disabled = false;
-        startSquares.disabled = false;
-        stopBtn.style.display = 'none';
-        finalizeBtn.style.display = 'inline-block';
-        activeInfo.style.display = 'none';
-    } else {
-        startPowers.disabled = false;
-        startSquares.disabled = false;
-        stopBtn.style.display = 'none';
-        finalizeBtn.style.display = 'none';
-        activeInfo.style.display = 'none';
-    }
-}
 
 function loadResults(students) {
     const tbody = document.getElementById('resultsBody');
@@ -136,54 +210,33 @@ document.getElementById('startPowers').addEventListener('click', () => {
 
 document.getElementById('startSquares').addEventListener('click', () => {
     if (confirm('Запустить тест "Квадраты чисел"?')) {
+        console.log("blaaaaaaaaaaaaaaaaaaaaaaaaaat")
         teacherSocket.emit('start_test', {variant: 'squares'});
+        console.log("sukaaaaaaaaaaaaaaaaaaaaaaaaaa")
     }
 });
 
 document.getElementById('stopBtn').addEventListener('click', () => {
     if (confirm('Остановить тест?')) {
         teacherSocket.emit('stop_test');
+        downloadResultsAsCSV();
     }
 });
 
 document.getElementById('finalizeBtn').addEventListener('click', () => {
-    if (confirm('ЗАВЕРШИТЬ тест? Все данные будут УДАЛЕНЫ!')) {
+    if (confirm('Завершить тестирование? Все ученики будут возвращены на страницу регестрации.')) {
         teacherSocket.emit('finalize_test');
         window.location.reload();
     }
 });
 
-document.getElementById('downloadBtn').addEventListener('click', downloadResultsAsCSV);
-
-function downloadResultsAsCSV() {
-    const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
-    if (rows.length === 0) {
-        alert('Нет данных для скачивания');
-        return;
-    }
-
-    let csvContent = '"№ ПК","Фамилия","IP","Правильных","Баллы","Оценка","Действие"\n';
-
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length > 0) {
-            const rowData = Array.from(cells).slice(0, -1)
-                .map(cell => `"${cell.textContent.replace(/"/g, '""')}"`)
-                .join(',');
-            csvContent += rowData + '\n';
-        }
-    });
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
-    link.setAttribute('href', URL.createObjectURL(blob));
-    link.setAttribute('download', `результаты_${dateStr}.csv`);
-    link.click();
-}
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/logout', {method: 'POST', credentials: 'include'});
     window.location.reload();
 });
+
+document.getElementById('newBtn').addEventListener('click', () => {
+    teacherSocket.emit('new_test')
+    updateButtons({active: false, finalized: true})
+})

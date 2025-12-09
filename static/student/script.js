@@ -1,6 +1,10 @@
 localStorage.removeItem('student_session');
 
 const QUESTION_TIME = 10;
+const TOTAL_QUESTIONS = 10;
+
+const logoutBtn = document.getElementById('logout-student-btn');
+const error_place = document.getElementById('error')
 
 class StudentTestSystem {
     constructor() {
@@ -117,7 +121,6 @@ const studentSystem = new StudentTestSystem();
 
 let score = 0;
 let questionCount = 0;
-const TOTAL_QUESTIONS = 10;
 let questionTimer = null;
 let timeLeft = QUESTION_TIME;
 let currentCorrectAnswer = null;
@@ -157,6 +160,7 @@ function handleTimeUp() {
 }
 
 function generateQuestion() {
+    error_place.textContent = " ";
     const qData = studentSystem.generateUniqueQuestion();
     if (!qData) return;
     currentCorrectAnswer = qData.answer;
@@ -185,21 +189,44 @@ function showAnswerFeedback(isCorrect, message = '') {
     }, 1000);
 }
 
+function handleAnswerSubmit() {
+    if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS) return;
+    
+    if (timeLeft <= 0) {
+        error_place.textContent = 'Время вышло!';
+        return;
+    }
+    
+    const userAnswer = parseInt(document.getElementById('answer').value.trim());
+    if (isNaN(userAnswer)) {
+        error_place.textContent = 'Введите число';
+        return;
+    }
+    
+    attemptCount++;
+    if (userAnswer === currentCorrectAnswer) {
+        const points = (attemptCount === 1) ? 10 : 5;
+        score += points;
+        questionCount++;
+        showAnswerFeedback(true);
+    } else {
+        showAnswerFeedback(false, 'Неверно!');
+    }
+}
+
 async function finishTest() {
     clearInterval(questionTimer);
     document.getElementById('timer-container').style.display = 'none';
     const finalScore = Math.min(100, Math.max(0, Math.round(score)));
-    const result = await studentSystem.submitResult(finalScore);
     document.getElementById('main-title').textContent = 'Тест завершён';
     const resultMessage = document.getElementById('result-message');
-    if (result.error) {
-        resultMessage.textContent = `❌ Ошибка отправки: ${result.error}`;
-    } else {
-        resultMessage.textContent = `✅ Тест завершён!\nБаллы: ${finalScore}`;
-    }
+    resultMessage.textContent = `✅ Тест завершён!\nБаллы: ${finalScore}`;
     document.getElementById('test-block').style.display = 'none';
     document.getElementById('waiting-block').style.display = 'none';
     document.getElementById('result-block').style.display = 'block';
+    const result = await studentSystem.submitResult(finalScore);
+    if (result.error) console.log(`Ошибка отправки ${result.error}`);
+    logoutBtn.style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -213,16 +240,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const registerBtn = document.getElementById('register-btn');
     const displayName = document.getElementById('display-name');
     const startBtn = document.getElementById('start-btn');
-    const logoutBtn = document.getElementById('logout-student-btn');
     const answerInput = document.getElementById('answer');
     const submitBtn = document.getElementById('submit-btn');
-
 
     socket.on('connect', () => {
         console.log('✅ Ученик подключён');
     });
 
     socket.on('test_started', (data) => {
+        questionCount = 0;
         studentSystem.testActive = true;
         studentSystem.testVariant = data.variant;
         if (studentSystem.registered) {
@@ -237,24 +263,36 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     socket.on('test_stopped', (data) => {
-    studentSystem.testActive = false;
-    if (questionCount >= TOTAL_QUESTIONS) {
+        studentSystem.testActive = false;
         finishTest();
-    } else {
-        testBlock.style.display = 'none';
-        resultBlock.style.display = 'none';
+    });
+
+    socket.on('new_test', (data) => {
+        studentSystem.testActive = false;
+        regBlock.style.display = 'none';
         waitBlock.style.display = 'block';
-        title.textContent = `Ожидание... Баллы: ${Math.min(100, Math.max(0, Math.round(score)))}`;
-        logoutBtn.style.display = 'inline-block';
-    }
+        title.textContent = 'Ожидание';
+        logoutBtn.style.display = 'inline-block'; 
+        resultBlock.style.display = 'none';
+        startBtn.style.display = 'none'; 
+    });
+
+    socket.on('test_finalized', () => {
+        regBlock.style.display = 'block'; 
+        testBlock.style.display = 'none'; 
+        resultBlock.style.display = 'none';
+        waitBlock.style.display = 'none'; 
+        title.textContent = 'Регистрация'; 
+        studentSystem.testActive = false;
+        logoutBtn.style.display = 'none';
     });
 
     socket.on('kicked_to_login', () => {
         alert('Вас выгнали!');
         localStorage.removeItem('student_session');
         window.location.href = '/';
+        logoutBtn.style.display = 'none';
     });
-
 
     registerBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
@@ -276,6 +314,8 @@ document.addEventListener('DOMContentLoaded', function () {
         logoutBtn.style.display = 'inline-block';
         if (studentSystem.testActive) {
             startBtn.style.display = 'inline-block';
+        } else { 
+            startBtn.style.display = 'none';
         }
     });
 
@@ -292,7 +332,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     answerInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            submitBtn.click();
+            e.preventDefault(); 
+            handleAnswerSubmit();
         }
     });
 
@@ -301,30 +342,11 @@ document.addEventListener('DOMContentLoaded', function () {
     answerInput.setAttribute('autocapitalize', 'off');
     answerInput.setAttribute('spellcheck', 'false');
 
-    submitBtn.addEventListener('click', () => {
-        if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS) return;
-        if (timeLeft <= 0) {
-            alert('Время вышло!');
-            return;
-        }
-        const userAnswer = parseInt(answerInput.value.trim());
-        if (isNaN(userAnswer)) {
-            alert('Введите число');
-            return;
-        }
-        attemptCount++;
-        if (userAnswer === currentCorrectAnswer) {
-            const points = (attemptCount === 1) ? 10 : 5;
-            score += points;
-            questionCount++;
-            showAnswerFeedback(true);
-        } else {
-            showAnswerFeedback(false, 'Неверно!');
-        }
-    });
+    submitBtn.addEventListener('click', handleAnswerSubmit);
 
     logoutBtn.addEventListener('click', () => {
         if (!confirm('Выйти из теста?')) return;
         socket.emit('student_logout');
+        logoutBtn.style.display = 'none';
     });
 });

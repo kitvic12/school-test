@@ -85,9 +85,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         active_students = [s for s in students_sessions.values() if s.get('connected', True)]
         all_submitted = all(s['score'] is not None for s in active_students)
         if all_submitted:
-            emit('all_students_submitted', {
-                'message': 'Все ученики сдали тест'
-            }, namespace='/teacher', broadcast=True)
+            emit('all_students_submitted', {}, namespace='/teacher', broadcast=True)
 
     @socketio.on('start_test', namespace='/teacher')
     def handle_start_test(data):
@@ -106,6 +104,13 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('test_stopped', {}, namespace='/student', broadcast=True)
             emit('test_stopped', {}, namespace='/teacher', broadcast=True)
             emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
+    
+    @socketio.on('new_test', namespace='/teacher')
+    def handle_open_new_test():
+        if 'logged_in' not in session:
+            return
+        emit('new_test', {}, namespace='/student', broadcast=True)  
+        test_manager.finalize_test()      
 
     @socketio.on('finalize_test', namespace='/teacher')
     def handle_finalize_test():

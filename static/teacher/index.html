@@ -34,17 +34,17 @@
     <div id="teacherSection" style="display: none;">
         <main class="teacher-panel">
             <h1>📊 Панель учителя</h1>
-            <div class="controls">
-                <button id="startPowers" class="variant-btn">🎯 Степени двойки</button>
-                <button id="startSquares" class="variant-btn">🔢 Квадраты чисел</button>
+            <div class="controls"><span id="variant-btns">
+                <button id="startPowers" class="variant-btn" style="display: inline-block;">🎯 Степени двойки</button>
+                <button id="startSquares" class="variant-btn" style="display: inline-block;">🔢 Квадраты чисел</button></span>
                 <button id="stopBtn" class="stop-btn" style="display: none;">⏹️ Остановить тест</button>
-                <button id="downloadBtn" class="download-btn">📥 Скачать CSV</button> 
+                <button id="newBtn" class="variant-btn" style="display: none;">🎯Новый тест🔢</button>
                 <button id="finalizeBtn" class="finalize-btn" style="display: none;">🗑️ Завершить тест</button>
                 <button id="logoutBtn" class="logout-btn">Выйти</button>
             </div>
             <div id="activeTestInfo" class="status-info" style="display: none;">
                 <h3>✅ Тестирование запущено</h3>
-                <p>Ученики проходят тест. Результаты обновляются в реальном времени.</p>
+                <p id="what_open"></p>
             </div>
 
             <table class="results-table">
