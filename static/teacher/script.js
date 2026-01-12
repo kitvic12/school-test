@@ -178,7 +178,16 @@ function loadResults(students) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет учеников</td></tr>';
         return;
     }
-    
+     
+ 
+function escapeOutput(toOutput){
+    return toOutput.stringify().replace(/\&/g, '&amp;')
+        .replace(/\</g, '&lt;')
+        .replace(/\>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/\'/g, '&#x27;')
+        .replace(/\//g, '&#x2F;');
+}
     students.forEach(s => {
         const correct = s.score ? Math.min(10, Math.floor(s.score / 10)) : 0;
         const row = document.createElement('tr');
@@ -210,10 +219,7 @@ document.getElementById('startPowers').addEventListener('click', () => {
 
 document.getElementById('startSquares').addEventListener('click', () => {
     if (confirm('Запустить тест "Квадраты чисел"?')) {
-        console.log("blaaaaaaaaaaaaaaaaaaaaaaaaaat")
-        teacherSocket.emit('start_test', {variant: 'squares'});
-        console.log("sukaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    }
+        teacherSocket.emit('start_test', {variant: 'squares'})}
 });
 
 document.getElementById('stopBtn').addEventListener('click', () => {
@@ -240,3 +246,5 @@ document.getElementById('newBtn').addEventListener('click', () => {
     teacherSocket.emit('new_test')
     updateButtons({active: false, finalized: true})
 })
+
+

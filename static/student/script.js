@@ -1,7 +1,7 @@
 localStorage.removeItem('student_session');
 
 const QUESTION_TIME = 10;
-const TOTAL_QUESTIONS = 10;
+const TOTAL_QUESTIONS = 1;
 
 const logoutBtn = document.getElementById('logout-student-btn');
 const error_place = document.getElementById('error')
@@ -13,7 +13,7 @@ class StudentTestSystem {
         this.testActive = false;
         this.testVariant = null;
         this.testFinalized = false;
-        this.usedQuestions = new Set();
+        this.usedQuestions = [];
         this.computerNumber = '';
     }
 
@@ -70,49 +70,72 @@ class StudentTestSystem {
         });
     }
 
-    generateUniqueQuestion() {
+    async generateUniqueQuestion() {
         if (!this.testVariant) return null;
-        const maxAttempts = 100;
-        let attempts = 0;
-        while (attempts < maxAttempts) {
-            let questionHtml, answer, key;
-            if (this.testVariant === 'powers') {
-                const type = Math.random() > 0.5 ? 'direct' : 'reverse';
-                if (type === 'direct') {
-                    const exp = Math.floor(Math.random() * 15); 
-                    questionHtml = `Чему равно 2<sup>${exp}</sup>?`;
-                    answer = Math.pow(2, exp);
-                    key = `p_dir_${exp}`;
+        
+        return new Promise((resolve) => {
+            socket.emit('new_quest', { 
+                mode: this.testVariant, 
+                asked_questions: this.usedQuestions 
+            });
+            
+            const handleNewQuest = (data) => {
+                socket.off('quest_error', handleQuestError);
+                
+                let questionText;
+                if (data.returned_type === 'base') {
+                    if (this.testVariant === 'sqrt') {
+                        questionText = `Чему равен квадрат числа ${data.question}<sup>2</sup>?`;
+                    } else {
+                        questionText = `Чему равно 2<sup>${data.question}</sup>?`;
+                    }
                 } else {
-                    const exp = Math.floor(Math.random() * 15); 
-                    const res = Math.pow(2, exp);
-                    questionHtml = `В какую степень нужно возвести 2, чтобы получить ${res}?`;
-                    answer = exp;
-                    key = `p_rev_${res}`;
+                    if (this.testVariant === 'sqrt') {
+                        questionText = `Чему равен корень из ${data.question}?`;
+                    } else {
+                        questionText = `В какую степень нужно возвести 2, чтобы получить ${data.question}?`;
+                    }
                 }
-            } else {
-                const type = Math.random() > 0.5 ? 'direct' : 'reverse';
-                if (type === 'direct') {
-                    const num = Math.floor(Math.random() * 21) + 10;
-                    questionHtml = `Чему равен квадрат числа ${num}<sup>2</sup>?`;
-                    answer = num * num;
-                    key = `s_dir_${num}`;
-                } else {
-                    const base = Math.floor(Math.random() * 21) + 10; 
-                    const res = Math.pow(base, 2);
-                    questionHtml = `Чему равен корень из ${res}?`;
-                    answer = base;
-                    key = `s_rev_${res}`;
-                }
-            }
-            if (!this.usedQuestions.has(key)) {
-                this.usedQuestions.add(key);
-                return { questionHtml, answer, key };
-            }
-            attempts++;
-        }
-        this.usedQuestions.clear();
-        return this.generateUniqueQuestion();
+                
+                resolve({ 
+                    questionHtml: questionText, 
+                    question: data.question, 
+                    questionType: data.returned_type 
+                });
+            };
+            
+            const handleQuestError = (data) => {
+                socket.off('new_quest', handleNewQuest);
+                resolve(null);
+            };
+            
+            socket.on('new_quest', handleNewQuest);
+            socket.on('quest_error', handleQuestError);
+        });
+    }
+    
+    async checkAnswer(question, questionType, studentAnswer) {
+        return new Promise((resolve) => {
+            socket.emit('check_quest', { 
+                mode: this.testVariant, 
+                question: question, 
+                question_type: questionType, 
+                student_answer: studentAnswer 
+            });
+            
+            const handleCheckResult = (data) => {
+                socket.off('check_error', handleCheckError);
+                resolve(data.result);
+            };
+            
+            const handleCheckError = (data) => {
+                socket.off('check_result', handleCheckResult);
+                resolve(false);
+            };
+            
+            socket.on('check_result', handleCheckResult);
+            socket.on('check_error', handleCheckError);
+        });
     }
 }
 
@@ -123,7 +146,7 @@ let score = 0;
 let questionCount = 0;
 let questionTimer = null;
 let timeLeft = QUESTION_TIME;
-let currentCorrectAnswer = null;
+let currentQuestionData = null;
 let attemptCount = 0;
 
 function updateQuestionTimerDisplay() {
@@ -148,7 +171,8 @@ function startQuestionTimer() {
 
 function handleTimeUp() {
     const lastInput = parseInt(document.getElementById('answer').value.trim());
-    if (!isNaN(lastInput) && lastInput === currentCorrectAnswer) {
+    if (!isNaN(lastInput) && currentQuestionData && 
+        studentSystem.checkAnswer(currentQuestionData.question, currentQuestionData.questionType, lastInput)) {
         const points = (attemptCount === 1) ? 10 : 5;
         score += points;
         questionCount++;
@@ -159,11 +183,11 @@ function handleTimeUp() {
     }
 }
 
-function generateQuestion() {
+async function generateQuestion() {
     error_place.textContent = " ";
-    const qData = studentSystem.generateUniqueQuestion();
+    const qData = await studentSystem.generateUniqueQuestion();
     if (!qData) return;
-    currentCorrectAnswer = qData.answer;
+    currentQuestionData = qData;
     attemptCount = 0;
     document.getElementById('question').innerHTML = `${qData.questionHtml} (Вопрос ${questionCount + 1}/${TOTAL_QUESTIONS})`;
     document.getElementById('answer').value = '';
@@ -189,7 +213,7 @@ function showAnswerFeedback(isCorrect, message = '') {
     }, 1000);
 }
 
-function handleAnswerSubmit() {
+async function handleAnswerSubmit() {
     if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS) return;
     
     if (timeLeft <= 0) {
@@ -203,8 +227,19 @@ function handleAnswerSubmit() {
         return;
     }
     
+    if (!currentQuestionData) {
+        error_place.textContent = 'Ошибка загрузки вопроса';
+        return;
+    }
+    
     attemptCount++;
-    if (userAnswer === currentCorrectAnswer) {
+    const isCorrect = await studentSystem.checkAnswer(
+        currentQuestionData.question, 
+        currentQuestionData.questionType, 
+        userAnswer
+    );
+    
+    if (isCorrect) {
         const points = (attemptCount === 1) ? 10 : 5;
         score += points;
         questionCount++;
@@ -284,6 +319,7 @@ document.addEventListener('DOMContentLoaded', function () {
         waitBlock.style.display = 'none'; 
         title.textContent = 'Регистрация'; 
         studentSystem.testActive = false;
+        studentSystem.usedQuestions = []; // Сбрасываем список вопросов при финализации
         logoutBtn.style.display = 'none';
     });
 
@@ -319,15 +355,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    startBtn.addEventListener('click', () => {
+    startBtn.addEventListener('click', async () => {
         if (!studentSystem.registered || !studentSystem.testActive) return;
         waitBlock.style.display = 'none';
         testBlock.style.display = 'block';
         title.textContent = 'Тестирование';
         score = 0;
         questionCount = 0;
-        studentSystem.usedQuestions.clear();
-        generateQuestion();
+        studentSystem.usedQuestions = []; // Сбрасываем список вопросов перед началом теста
+        await generateQuestion();
     });
 
     answerInput.addEventListener('keydown', (e) => {

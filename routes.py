@@ -2,6 +2,7 @@ from flask import request, jsonify, session
 from flask_socketio import emit
 from datetime import datetime
 from auth import login_teacher
+from question import generate_question_advanced, check_answer
 
 def calculate_grade(score):
     if score is None:
@@ -135,3 +136,19 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                     pass
                 break
         emit('update_students', list(students_sessions.values()), namespace='/teacher', broadcast=True)
+
+    @socketio.on("new_quest", namespace='/student')
+    def handle_new_quest(data):
+        if 'logged_in' not in session:
+            return
+        
+        resp = generate_question_advanced(data[0], data[1])
+        emit('new_quest', resp, namespace='/student', broadcast=True)
+
+
+    @socketio.on('check_quest', namespace='/student')
+    def handle_check_quest(data):
+        if 'logged_in' not in session:
+            return
+        
+        emit('checked_quest', check_answer(data[0], data[1], data[2]), namespace='/student', broadcast=True)
