@@ -181,7 +181,11 @@ function loadResults(students) {
      
  
 function escapeOutput(toOutput){
+<<<<<<< HEAD
     return toOutput.stringify().replace(/\&/g, '&amp;')
+=======
+    return toOutput.replace(/\&/g, '&amp;')
+>>>>>>> 7d50b084789cb35621de5ebbb966414d67a5ba36
         .replace(/\</g, '&lt;')
         .replace(/\>/g, '&gt;')
         .replace(/\"/g, '&quot;')
@@ -192,12 +196,12 @@ function escapeOutput(toOutput){
         const correct = s.score ? Math.min(10, Math.floor(s.score / 10)) : 0;
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${s.computer_number}</td>
-            <td>${s.name}</td>
-            <td>${s.ip}</td>
+            <td>${escapeOutput(s.computer_number)}</td>
+            <td>${escapeOutput(s.name)}</td>
+            <td>${escapeOutput(s.ip)}</td>
             <td>${correct}/10</td>
-            <td>${s.score != null ? s.score : '-'}</td>
-            <td>${s.grade || '-'}</td>
+            <td>${escapeOutput(s.score != null ? s.score : '-') }</td>
+            <td>${escapeOutput(s.grade || '-') }</td>
             <td><button class="kick-btn" onclick="kick('${s.ip}')">Выгнать</button></td>
         `;
         tbody.appendChild(row);
