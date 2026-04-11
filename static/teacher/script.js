@@ -181,11 +181,8 @@ function loadResults(students) {
      
  
 function escapeOutput(toOutput){
-<<<<<<< HEAD
+HEAD
     return toOutput.stringify().replace(/\&/g, '&amp;')
-=======
-    return toOutput.replace(/\&/g, '&amp;')
->>>>>>> 7d50b084789cb35621de5ebbb966414d67a5ba36
         .replace(/\</g, '&lt;')
         .replace(/\>/g, '&gt;')
         .replace(/\"/g, '&quot;')
