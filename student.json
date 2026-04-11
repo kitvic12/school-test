@@ -1,0 +1,10 @@
+{
+    "NameFromFront":{  
+        "name": "str", 
+        "pc":"str",
+        "type":"square or base", 
+        "askedquestions": "list",
+        "score":0,
+        "ip": "str"
+    }
+}

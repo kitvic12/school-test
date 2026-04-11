@@ -2,6 +2,7 @@ import random
 import math
 
 def generate_question_advanced(mode: str, asked_questions: list, question_type: str = 'random'):
+    print(mode, asked_questions, question_type)
     if mode == 'sqrt':
         all_bases = list(range(10, 31)) 
     elif mode == 'powers':

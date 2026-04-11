@@ -3,6 +3,10 @@ import socket
 from flask import Flask, send_from_directory, request, jsonify, session
 from flask_socketio import SocketIO
 
+from writer import load_students, save_students
+from test_manager import TestManager
+from routes import setup_routes
+
 def get_local_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -19,14 +23,33 @@ app.config.update(
     SESSION_COOKIE_SECURE=False
 )
 
+# === ДОБАВЛЕНО: Логирование ===
+from flask_logger import FlaskLogger
+flask_logger = FlaskLogger(app)
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 students_sessions = {}
-from test_manager import TestManager
 test_manager = TestManager()
 
 os.makedirs('static/student', exist_ok=True)
 os.makedirs('static/teacher', exist_ok=True)
+
+app.students_data = load_students()
+if 'students' not in app.students_data:
+    app.students_data['students'] = {}
+if 'test_state' not in app.students_data:
+    app.students_data['test_state'] = {
+        'active': False,
+        'variant': None,
+        'finalized': True
+    }
+
+# === ДОБАВЛЕНО: Логирование запросов ===
+@app.after_request
+def log_request_info(response):
+    flask_logger.log_request(response)
+    return response
 
 @app.route('/')
 def student():
@@ -50,7 +73,6 @@ def teacher_static(path):
         return "❌ Доступ запрещён", 403
     return send_from_directory('static/teacher', path)
 
-from routes import setup_routes
 setup_routes(app, socketio, students_sessions, test_manager)
 
 if __name__ == '__main__':

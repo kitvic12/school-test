@@ -71,36 +71,47 @@ class StudentTestSystem {
     }
 
     async generateUniqueQuestion() {
-        if (!this.testVariant) return null;
+        if (!this.testVariant) {console.log("Fuck u");return null}
         
         return new Promise((resolve) => {
+            console.log("Generating unique question...");
             socket.emit('new_quest', { 
                 mode: this.testVariant, 
-                asked_questions: this.usedQuestions 
+                asked_questions: this.usedQuestions,
+                question_type: 'random' 
             });
+            console.log("Emitting new_quest event...");
+
+            
             
             const handleNewQuest = (data) => {
                 socket.off('quest_error', handleQuestError);
                 
-                let questionText;
-                if (data.returned_type === 'base') {
+
+                const { questionText, returned_type, updated_questions } = data;
+                
+
+                this.usedQuestions = updated_questions;
+
+                if (returned_type === 'base') {
                     if (this.testVariant === 'sqrt') {
-                        questionText = `Чему равен квадрат числа ${data.question}<sup>2</sup>?`;
+                        questionText = `Чему равен квадрат числа ${question}<sup>2</sup>?`;
                     } else {
-                        questionText = `Чему равно 2<sup>${data.question}</sup>?`;
+                        questionText = `Чему равно 2<sup>${question}</sup>?`;
                     }
                 } else {
                     if (this.testVariant === 'sqrt') {
-                        questionText = `Чему равен корень из ${data.question}?`;
+                        questionText = `Чему равен корень из ${question}?`;
                     } else {
-                        questionText = `В какую степень нужно возвести 2, чтобы получить ${data.question}?`;
+                        questionText = `В какую степень нужно возвести 2, чтобы получить ${question}?`;
                     }
                 }
                 
                 resolve({ 
                     questionHtml: questionText, 
                     question: data.question, 
-                    questionType: data.returned_type 
+                    questionType: data.returned_type,
+                    answer: data.answer  
                 });
             };
             
@@ -319,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function () {
         waitBlock.style.display = 'none'; 
         title.textContent = 'Регистрация'; 
         studentSystem.testActive = false;
-        studentSystem.usedQuestions = []; // Сбрасываем список вопросов при финализации
+        studentSystem.usedQuestions = [];
         logoutBtn.style.display = 'none';
     });
 
@@ -362,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function () {
         title.textContent = 'Тестирование';
         score = 0;
         questionCount = 0;
-        studentSystem.usedQuestions = []; // Сбрасываем список вопросов перед началом теста
+        studentSystem.usedQuestions = []; 
         await generateQuestion();
     });
 
