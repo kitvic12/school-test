@@ -5,6 +5,7 @@ __pycache__/
 .Python
 
 ./.venv
+student.json
 
 # C extensions
 *.so
@@ -186,4 +187,5 @@ cython_debug/
 ignore/token.py
 inline/pat_token.py
 /remote_repo/
+
 

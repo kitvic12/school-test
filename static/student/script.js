@@ -88,10 +88,10 @@ class StudentTestSystem {
                 socket.off('quest_error', handleQuestError);
                 
 
-                const { questionText, returned_type, updated_questions } = data;
-                
+                const { question, returned_type, updated_questions } = data;
 
                 this.usedQuestions = updated_questions;
+                let questionText = '';
 
                 if (returned_type === 'base') {
                     if (this.testVariant === 'sqrt') {
@@ -109,9 +109,9 @@ class StudentTestSystem {
                 
                 resolve({ 
                     questionHtml: questionText, 
-                    question: data.question, 
-                    questionType: data.returned_type,
-                    answer: data.answer  
+                    question: question, 
+                    questionType: returned_type,
+                    answer: undefined  
                 });
             };
             

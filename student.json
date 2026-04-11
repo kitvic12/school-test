@@ -1,10 +1,21 @@
 {
-    "NameFromFront":{  
-        "name": "str", 
-        "pc":"str",
-        "type":"square or base", 
-        "askedquestions": "list",
-        "score":0,
-        "ip": "str"
+    "students": {
+        "1|1-101": {
+            "name": "1",
+            "pc": "1-101",
+            "computer_number": "1-101",
+            "type": null,
+            "askedquestions": [],
+            "score": 10,
+            "grade": "2",
+            "timestamp": "2026-04-11 15:42:35",
+            "ip": "10.169.96.108",
+            "connected": true
+        }
+    },
+    "test_state": {
+        "active": false,
+        "variant": "powers",
+        "finalized": false
     }
 }
