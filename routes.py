@@ -3,17 +3,19 @@ from flask_socketio import emit
 from datetime import datetime
 from auth import login_teacher
 from question import generate_question_advanced, check_answer
-from writer import save_students
+from writer import save_students, load_settings
 
 
 def calculate_grade(score):
+    grade = load_settings(what="Graduations")
+
     if score is None:
         return None
-    if score >= 90:
+    if score >= grade[0]:
         return '5'
-    elif score >= 75:
+    elif score >= grade[1]:
         return '4'
-    elif score >= 50:
+    elif score >= grade[2]:
         return '3'
     else:
         return '2'
@@ -110,6 +112,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if sid not in students_sessions:
             emit('submit_error', {'error': 'Не зарегистрирован'}, namespace='/student')
             return
+
 
         score = data.get('score')
         student_key = students_sessions[sid]
@@ -259,3 +262,5 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('check_result', {'result': result}, namespace='/student')
         except Exception as exc:
             emit('check_error', {'error': str(exc)}, namespace='/student')
+
+

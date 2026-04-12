@@ -1,5 +1,74 @@
 let teacherSocket = null;
 const download_results = true;
+const form_id = document.getElementById('settingsForm');
+const questionForm = document.getElementById('totalQuestions');
+
+
+function getSettings() {
+    return fetch('/api/settings')
+        .then(res => res.json())
+        .catch(() => ({TeacherIP, Port, TotalQuestions, Graduations5, Graduations4, Graduations3}));
+}
+
+settings = getSettings().then(s => {
+    form_id.innerHTML = `
+    <table class="settings-table", style="background-color: transparent">
+        <tr>
+            <td>IP учителя:</td>
+            <td><input type="text" id="teacherIP" value=${s.TeacherIP} required></td>
+        </tr>
+        <tr>
+            <td>Порт:</td>
+            <td><input type="number" id="port" value="${s.Port}" required></td>
+        </tr>
+        <tr>
+            <td>Всего вопросов:</td>
+            <td><input type="number" id="totalQuestions" value="${s.TotalQuestions}" required></td>
+        </tr>
+        <tr>
+            <td>Порог для 5:</td>
+            <td><input type="number" id="graduations5" value="${s.Graduations5}" required></td>
+        </tr>
+        <tr>
+            <td>Порог для 4:</td>
+            <td><input type="number" id="graduations4" value="${s.Graduations4}"required></td>
+        </tr>
+        <tr>
+            <td>Порог для 3:</td>
+            <td><input type="number" id="graduations3" value="${s.Graduations3}" required></td>
+        </tr>
+    </table>
+    <p><strong>Максимум баллов:<span id="MaximumScore"> ${s.TotalQuestions * 10}</span>. Наичсляется 10б за ответ с 1 попытки и 5б за ответ со 2 и более попытки</strong></p>
+    <p><button type="submit">Сохранить настройки</button></p>'
+    `;
+})
+
+async function formCheck () {
+    while (true) {
+    try {
+    questionForm.addEventListener('input', s => {
+        const MaximumScore = document.getElementById('MaximumScore');
+        MaximumScore.textContent = s.value * 10;
+    })
+    } catch(e) {
+        console.log("Settings form not found, skipping dynamic max score update")
+        setTimeout(s => {
+            console.log("Retrying to find settings form...")
+        }, 10);
+        break;
+    }    
+}}
+
+
+formCheck();
+
+
+
+function update_settings() { 
+    const form = document.getElementById(form_id);
+     
+
+}
 
 
 
@@ -246,5 +315,3 @@ document.getElementById('newBtn').addEventListener('click', () => {
     teacherSocket.emit('new_test')
     updateButtons({active: false, finalized: true})
 })
-
-

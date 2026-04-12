@@ -23,24 +23,21 @@ class FlaskLogger:
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
     
+
     def get_client_type(self, path):
-        """Определяем тип клиента по пути"""
         if path.startswith('/teacher'):
             return 'TEACHER'
         elif path in ['/', '/script.js', '/style.css', '/student/*']:
             return 'STUDENT'
         elif path.startswith('/api'):
-            # Определяем по IP или сессии
             client_ip = request.remote_addr
             if client_ip in ['127.0.0.1', 'localhost']:
                 return 'TEACHER_API'
             else:
                 return 'STUDENT_API'
         elif path.startswith('/socket.io'):
-            # Для сокетов — проверяем namespace
             transport = request.args.get('transport', '')
             if transport:
-                # Пытаемся определить по сессии или IP
                 client_ip = request.remote_addr
                 if client_ip in ['127.0.0.1', 'localhost']:
                     return 'TEACHER_SOCKET'
@@ -48,8 +45,8 @@ class FlaskLogger:
                     return 'STUDENT_SOCKET'
         return 'UNKNOWN'
     
+
     def log_request(self, response):
-        """Логирование HTTP-запросов"""
         client_type = self.get_client_type(request.path)
         
         try:
@@ -82,6 +79,7 @@ class FlaskLogger:
                     )
             except:
                 pass
+    
     
     def log_custom(self, level, message):
         self.app.logger.log(level, message)

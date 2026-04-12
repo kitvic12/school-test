@@ -6,16 +6,16 @@
             "computer_number": "1-101",
             "type": null,
             "askedquestions": [],
-            "score": 10,
-            "grade": "2",
-            "timestamp": "2026-04-11 15:42:35",
-            "ip": "10.169.96.108",
+            "score": null,
+            "grade": null,
+            "timestamp": null,
+            "ip": "10.16.185.178",
             "connected": true
         }
     },
     "test_state": {
         "active": false,
-        "variant": "powers",
-        "finalized": false
+        "variant": null,
+        "finalized": true
     }
 }

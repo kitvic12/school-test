@@ -8,17 +8,6 @@
     <link rel="stylesheet" href="/static/teacher/style.css">
 </head>
 <body>
-    <div id="status-message" class="hidden"></div>
-    <header>
-        <table>
-            <tbody>
-                <tr>
-                    <td><button id="swapButton" onclick="window.location.href='/'">🎓 Ученик</button></td>
-                </tr>
-            </tbody>
-        </table>
-    </header>
-    
     <div id="loginSection">
         <main class="login-form">
             <h1>Вход для учителя</h1>
@@ -64,6 +53,12 @@
                 </tbody>
             </table>
         </main>
+
+        <main class="teacher-panel" id="settingsSection">
+            <h1>⚙️ Настройки</h1>
+            <form id="settingsForm">
+            </form>
+            <div id="settingsMessage" style="color: green; margin-top: 15px;"></div>
     </div>
 
 

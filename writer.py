@@ -31,3 +31,63 @@ def save_students(students):
         json.dump(students, f, indent=4, ensure_ascii=False)
 
 
+def load_settings(what=None):
+    try:
+        with open('settings.json', 'r', encoding='utf-8') as f: 
+            settings = json.load(f)
+            if not isinstance(settings, dict):
+                raise ValueError('settings.json must contain a JSON object')
+            
+        if what is not None:
+            if what == "Graduations":
+                return {
+                    settings.get('Graduations5', '90'),
+                    settings.get('Graduations4', '75'),
+                    settings.get('Graduations3', '50')
+                }
+            return settings.get(what)
+        
+        return settings
+    
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        print(f"Error loading settings: {e}")
+        return None
+ 
+
+def update_students(data):
+    try:
+        with open('student.json', 'w') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"Error updating students: {e}")
+
+
+def clear_for_new_test():
+    try:
+        with open('student.json', 'w') as f:
+            json.dump({}, f)
+    except Exception as e:
+        print(f"Error clearing students: {e}")
+
+
+def delete_student(student_id):
+    try:
+        data = load_students()
+        if student_id in data.get('students', {}):
+            del data['students'][student_id]
+            save_students(data)
+    except Exception as e:
+        print(f"Error deleting student: {e}")
+
+
+
+def update_settings(new_settings):
+    try:
+        settings = load_settings(what=None)
+        if not isinstance(settings, dict):
+            settings = {}
+        settings.update(new_settings)
+        with open('settings.json', 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error updating settings: {e}")
