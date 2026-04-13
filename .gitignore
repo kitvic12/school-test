@@ -159,6 +159,7 @@ venv.bak/
 .dmypy.json
 dmypy.json
 database.json
+.json
 
 # Pyre type checker
 .pyre/
@@ -191,7 +192,3 @@ inline/pat_token.py
 
 # === ВСЕ JSON-ФАЙЛЫ ПРОЕКТА ===
 *.json
-!package-lock.json  # если используется npm
-!composer.lock      # если используется composer
-!.vscode/settings.json  # если нужен VSCode config
-!.github/workflows/*.json  # если используются GitHub Actions с JSON
