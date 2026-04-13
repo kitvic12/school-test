@@ -1,5 +1,3 @@
-localStorage.removeItem('student_session');
-
 const QUESTION_TIME = 10;
 const TOTAL_QUESTIONS = 1;
 
@@ -289,6 +287,59 @@ document.addEventListener('DOMContentLoaded', function () {
     const answerInput = document.getElementById('answer');
     const submitBtn = document.getElementById('submit-btn');
 
+    // Проверяем, не перезагрузился ли сервер
+    async function checkServerSessionAndRestore() {
+        try {
+            const response = await fetch('/api/server-session');
+            const data = await response.json();
+            const currentServerSessionId = data.server_session_id;
+            const savedServerSessionId = localStorage.getItem('server_session_id');
+            
+            if (savedServerSessionId && savedServerSessionId !== currentServerSessionId) {
+                // Сервер перезагрузился - очищаем хранилище
+                localStorage.clear();
+                localStorage.setItem('server_session_id', currentServerSessionId);
+                return;
+            }
+            // Сохраняем ID текущей сессии сервера
+            localStorage.setItem('server_session_id', currentServerSessionId);
+        } catch (e) {
+            console.log('Ошибка при проверке сессии сервера:', e);
+        }
+    }
+
+    // Проверяем сеанс сервера перед восстановлением
+    checkServerSessionAndRestore();
+
+    // Восстанавливаем сеанс из localStorage при загрузке
+    const savedSession = localStorage.getItem('student_session');
+    if (savedSession) {
+        try {
+            const session = JSON.parse(savedSession);
+            if (session.name && session.computerNumber) {
+                studentSystem.studentName = session.name;
+                studentSystem.computerNumber = session.computerNumber;
+                studentSystem.registered = true;
+                nameInput.value = session.name;
+                compInput.value = session.computerNumber;
+                displayName.textContent = session.name;
+                regBlock.style.display = 'none';
+                waitBlock.style.display = 'block';
+                title.textContent = 'Ожидание';
+                logoutBtn.style.display = 'inline-block';
+                
+                // Переподключаемся с сохраненной информацией
+                socket.emit('student_register', {
+                    student_name: session.name,
+                    computer_number: session.computerNumber
+                });
+            }
+        } catch (e) {
+            console.log('Не удалось восстановить сеанс:', e);
+            localStorage.removeItem('student_session');
+        }
+    }
+
     socket.on('connect', () => {
         console.log('✅ Ученик подключён');
     });
@@ -391,9 +442,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     submitBtn.addEventListener('click', handleAnswerSubmit);
 
+    socket.on('logout_success', () => {
+        localStorage.removeItem('student_session');
+        studentSystem.registered = false;
+        studentSystem.testActive = false;
+        studentSystem.testVariant = null;
+        studentSystem.usedQuestions = [];
+        regBlock.style.display = 'block';
+        waitBlock.style.display = 'none';
+        testBlock.style.display = 'none';
+        resultBlock.style.display = 'none';
+        title.textContent = 'Регистрация';
+        nameInput.value = '';
+        compInput.value = '';
+        answerInput.value = '';
+        logoutBtn.style.display = 'none';
+        questionCount = 0;
+        score = 0;
+    });
+
     logoutBtn.addEventListener('click', () => {
         if (!confirm('Выйти из теста?')) return;
         socket.emit('student_logout');
-        logoutBtn.style.display = 'none';
     });
 });

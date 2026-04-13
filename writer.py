@@ -40,11 +40,11 @@ def load_settings(what=None):
             
         if what is not None:
             if what == "Graduations":
-                return {
-                    settings.get('Graduations5', '90'),
-                    settings.get('Graduations4', '75'),
-                    settings.get('Graduations3', '50')
-                }
+                return [
+                    settings.get('Graduations5'),
+                    settings.get('Graduations4'),
+                    settings.get('Graduations3')
+                ]
             return settings.get(what)
         
         return settings
@@ -57,7 +57,7 @@ def load_settings(what=None):
 def update_students(data):
     try:
         with open('student.json', 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(data, f, indent=4, ensure_ascii=False)
     except Exception as e:
         print(f"Error updating students: {e}")
 
@@ -65,7 +65,7 @@ def update_students(data):
 def clear_for_new_test():
     try:
         with open('student.json', 'w') as f:
-            json.dump({}, f)
+            json.dump(DEFAULT_STORE, f, indent=4, ensure_ascii=False)
     except Exception as e:
         print(f"Error clearing students: {e}")
 
@@ -83,7 +83,7 @@ def delete_student(student_id):
 
 def update_settings(new_settings):
     try:
-        settings = load_settings(what=None)
+        settings = load_settings()
         if not isinstance(settings, dict):
             settings = {}
         settings.update(new_settings)
@@ -91,3 +91,8 @@ def update_settings(new_settings):
             json.dump(settings, f, indent=4, ensure_ascii=False)
     except Exception as e:
         print(f"Error updating settings: {e}")
+
+
+def is_active():
+    data = load_students()
+    return data.get('test_state', {}).get('active', False)

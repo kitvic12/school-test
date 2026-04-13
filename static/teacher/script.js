@@ -39,25 +39,36 @@ settings = getSettings().then(s => {
         </tr>
     </table>
     <p><strong>Максимум баллов:<span id="MaximumScore"> ${s.TotalQuestions * 10}</span>. Наичсляется 10б за ответ с 1 попытки и 5б за ответ со 2 и более попытки</strong></p>
-    <p><button type="submit">Сохранить настройки</button></p>'
+    <p><button type="submit" onclick="update_settings()">Сохранить настройки</button></p>'
     `;
 })
 
-async function formCheck () {
-    while (true) {
-    try {
-    questionForm.addEventListener('input', s => {
-        const MaximumScore = document.getElementById('MaximumScore');
-        MaximumScore.textContent = s.value * 10;
-    })
-    } catch(e) {
-        console.log("Settings form not found, skipping dynamic max score update")
-        setTimeout(s => {
-            console.log("Retrying to find settings form...")
-        }, 10);
-        break;
-    }    
-}}
+async function formCheck() {
+    const updateMaxScore = () => {
+        const totalInput = document.querySelector('#totalQuestions');
+        const scoreSpan = document.querySelector('#MaximumScore');
+        if (!totalInput || !scoreSpan) {
+            return;
+        }
+        const total = parseInt(totalInput.value, 10);
+        scoreSpan.textContent = ` ${Number.isNaN(total) ? 0 : total * 10}`;
+    };
+
+    const attachListener = () => {
+        const totalInput = document.querySelector('#totalQuestions');
+        if (!totalInput) {
+            return false;
+        }
+        totalInput.addEventListener('input', updateMaxScore);
+        updateMaxScore();
+        return true;
+    };
+
+    if (!attachListener()) {
+        setTimeout(formCheck, 300);
+    }
+}
+
 
 
 formCheck();
@@ -65,9 +76,28 @@ formCheck();
 
 
 function update_settings() { 
-    const form = document.getElementById(form_id);
-     
+    const TeacherIP = document.getElementById('teacherIP').value;
+    const Port = parseInt(document.getElementById('port').value, 10);
+    const TotalQuestions = parseInt(document.getElementById('totalQuestions').value, 10);
+    const Graduations5 = parseInt(document.getElementById('graduations5').value, 10);
+    const Graduations4 = parseInt(document.getElementById('graduations4').value, 10);
+    const Graduations3 = parseInt(document.getElementById('graduations3').value, 10);
+    
 
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ TeacherIP, Port, TotalQuestions, Graduations5, Graduations4, Graduations3 }),
+        credentials: 'include'
+    }).then(res => res.json()).then(data => {
+        if (data.error) {
+            alert(`Ошибка: ${data.error}`);
+        } else {
+            alert('Настройки сохранены');
+        }
+    }).catch(() => {
+        alert('Ошибка при сохранении настроек');
+    });
 }
 
 
@@ -209,7 +239,20 @@ function initSocket() {
 
     teacherSocket.on('connect', () => {
         console.log('✅ Учитель подключён');
-        teacherSocket.emit('get_students');
+        loadResults([]); // Очистить таблицу перед загрузкой данных
+        fetch('/api/check-login', { credentials: 'include' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.loggedIn) {
+                    teacherSocket.emit('get_students');
+                } else {
+                    // Если не авторизован, возможно, перезагрузить страницу или показать ошибку
+                    console.log('Не авторизован');
+                }
+            })
+            .catch(() => {
+                console.log('Ошибка проверки логина');
+            });
     });
 
 
@@ -240,15 +283,7 @@ function initSocket() {
 }
 
 
-function loadResults(students) {
-    const tbody = document.getElementById('resultsBody');
-    tbody.innerHTML = '';
-    if (!students || students.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет учеников</td></tr>';
-        return;
-    }
-     
- 
+
 function escapeOutput(toOutput){
     return String(toOutput).replace(/\&/g, '&amp;')
         .replace(/\</g, '&lt;')
@@ -257,6 +292,15 @@ function escapeOutput(toOutput){
         .replace(/\'/g, '&#x27;')
         .replace(/\//g, '&#x2F;');
 }
+
+function loadResults(students) {    
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+    if (!students || students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет учеников</td></tr>';
+        return;
+    }
+    
     students.forEach(s => {
         const correct = s.score ? Math.min(10, Math.floor(s.score / 10)) : 0;
         const row = document.createElement('tr');
@@ -314,4 +358,8 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 document.getElementById('newBtn').addEventListener('click', () => {
     teacherSocket.emit('new_test')
     updateButtons({active: false, finalized: true})
+и})
+
+document.getElementById('reloadBtn').addEventListener('click', () => {
+    teacherSocket.emit('reload_students')
 })

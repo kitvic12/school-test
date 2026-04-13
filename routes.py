@@ -3,7 +3,7 @@ from flask_socketio import emit
 from datetime import datetime
 from auth import login_teacher
 from question import generate_question_advanced, check_answer
-from writer import save_students, load_settings
+from writer import save_students, load_students, load_settings, delete_student
 
 
 def calculate_grade(score):
@@ -42,6 +42,11 @@ def get_persisted_student_list(app):
 
 
 def setup_routes(app, socketio, students_sessions, test_manager):
+
+    @app.route('/api/server-session', methods=['GET'])
+    def get_server_session():
+        """Возвращает уникальный ID сессии сервера для проверки перезагрузки"""
+        return jsonify({'server_session_id': app.server_session_id})
 
     @app.route('/api/check-login')
     def check_login():
@@ -99,7 +104,8 @@ def setup_routes(app, socketio, students_sessions, test_manager):
 
         emit('register_success', {
             'active': test_manager.is_test_active(),
-            'variant': test_manager.get_current_variant() if test_manager.is_test_active() else None
+            'variant': test_manager.get_current_variant() if test_manager.is_test_active() else None,
+            'student_key': student_key
         }, namespace='/student')
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
@@ -140,21 +146,14 @@ def setup_routes(app, socketio, students_sessions, test_manager):
     def handle_student_logout():
         sid = request.sid
         student_key = students_sessions.pop(sid, None)
-        if student_key and student_key in app.students_data.get('students', {}):
-            student_record = app.students_data['students'][student_key]
-            student_record['connected'] = False
-            save_students(app.students_data)
+        if student_key:
+            emit('logout_success', {}, namespace='/student')
             emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
     @socketio.on('disconnect', namespace='/student')
     def handle_student_disconnect():
         sid = request.sid
-        student_key = students_sessions.pop(sid, None)
-        if student_key and student_key in app.students_data.get('students', {}):
-            student_record = app.students_data['students'][student_key]
-            student_record['connected'] = False
-            save_students(app.students_data)
-            emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
+        students_sessions.pop(sid, None)
 
     @socketio.on('start_test', namespace='/teacher')
     def handle_start_test(data):
@@ -218,17 +217,36 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if not session.get('logged_in'):
             return
         target_ip = data.get('ip')
-        for sid, student_key in list(students_sessions.items()):
-            student_record = app.students_data['students'].get(student_key)
-            if student_record and student_record.get('ip') == target_ip:
-                students_sessions.pop(sid, None)
-                student_record['connected'] = False
-                save_students(app.students_data)
+        
+        # Find student by IP in all students (active or disconnected)
+        students_data = app.students_data['students']
+        student_key_to_kick = None
+        sid_to_notify = None
+        
+        for key, student_record in students_data.items():
+            if student_record.get('ip') == target_ip:
+                student_key_to_kick = key
+                break
+        
+        # If student has active session, find their SID to notify them
+        if student_key_to_kick:
+            for sid, sk in list(students_sessions.items()):
+                if sk == student_key_to_kick:
+                    sid_to_notify = sid
+                    students_sessions.pop(sid, None)
+                    break
+            
+            # Delete the student from persistent storage
+            delete_student(student_key_to_kick)
+            app.students_data = load_students()
+            
+            # Notify the student if they have active session
+            if sid_to_notify:
                 try:
-                    emit('kicked_to_login', {}, room=sid, namespace='/student')
+                    emit('kicked_to_login', {}, room=sid_to_notify, namespace='/student')
                 except Exception:
                     pass
-                break
+        
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
     @socketio.on('new_quest', namespace='/student')
@@ -264,3 +282,15 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('check_error', {'error': str(exc)}, namespace='/student')
 
 
+    @socketio.on('updateQuestionsCount', namespace='/teacher')
+    def handle_update_questions_count(data):
+        if not session.get('logged_in'):
+            return
+        emit('updateQuestionsCount', {'count': data.get('count')}, namespace='/student', broadcast=True)
+
+    @socketio.on('reload_students', namespace='/teacher')
+    def handle_reload_students():
+        if not session.get('logged_in'):
+            return
+        app.students_data = load_students()
+        emit('update_students', get_persisted_student_list(app), namespace='/teacher')

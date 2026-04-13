@@ -65,6 +65,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+*s.json
 
 # Flask stuff:
 instance/
@@ -188,4 +189,9 @@ ignore/token.py
 inline/pat_token.py
 /remote_repo/
 
-
+# === ВСЕ JSON-ФАЙЛЫ ПРОЕКТА ===
+*.json
+!package-lock.json  # если используется npm
+!composer.lock      # если используется composer
+!.vscode/settings.json  # если нужен VSCode config
+!.github/workflows/*.json  # если используются GitHub Actions с JSON

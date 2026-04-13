@@ -246,9 +246,6 @@ h3 {
     padding: 0 !important;
     margin: 0 !important;
     outline: none !important;
-    color: inherit !important;
-    font-size: inherit !important;
-    font-family: inherit !important;
     display: flex;
     justify-content: center;
     align-items: flex-start;

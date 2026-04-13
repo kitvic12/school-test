@@ -1,9 +1,10 @@
 import os
 import socket
+import secrets
 from flask import Flask, send_from_directory, request, jsonify, session
 from flask_socketio import SocketIO
 
-from writer import load_students, save_students, update_students, clear_for_new_test, load_settings
+from writer import load_students, clear_for_new_test, load_settings, update_settings, is_active
 from test_manager import TestManager
 from routes import setup_routes
 
@@ -17,11 +18,19 @@ def get_local_ip():
         return "127.0.0.1"
 
 app = Flask(__name__)
-app.secret_key = 'local-test-secret'
+# Генерируем новый секретный ключ при КАЖДОМ запуске сервера.
+# Это обеспечивает сброс всех сессий (включая учительскую) при перезапуске,
+# но сохраняет их при обычном обновлении страницы в браузере.
+app.secret_key = secrets.token_hex(32)
+# Уникальный идентификатор сессии сервера - меняется при каждом перезапуске
+# Используется для автоматической очистки localStorage у студентов
+app.server_session_id = secrets.token_hex(16)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
-    SESSION_COOKIE_SECURE=False
+    SESSION_COOKIE_SECURE=False,
+    SESSION_COOKIE_NAME='school_test_session',
+    PERMANENT_SESSION_LIFETIME=86400  # 24 часа
 )
 
 
@@ -68,14 +77,6 @@ def teacher():
 def student_static(path):
     return send_from_directory('static/student', path)
 
-@app.route('/teacher/<path:path>')
-def teacher_static(path):
-    client_ip = request.remote_addr
-    if client_ip != load_settings(what="TeacherIP"):
-        print(f"⚠️ Попытка доступа к учительской панели с IP: {client_ip}. Разрешенный IP: {load_settings(what="TeacherIP")}")
-        return "❌ Доступ запрещён", 403
-    return send_from_directory('static/teacher', path)
-
 
 @app.route('/api/settings', methods=['GET'])
 def api_settings():
@@ -91,6 +92,20 @@ def api_settings():
         "Graduations3": settings.get("Graduations3")
     })
 
+@app.route('/api/settings', methods=['POST'])
+def save_settings():
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Не авторизован'}), 401
+    if is_active():
+        return jsonify({'error': 'Нельзя менять настройки во время активного теста'}), 400
+    data = request.get_json()
+    update_settings(data)
+    return jsonify({'message': 'Настройки сохранены'})
+
+@app.route('/ST.ico')
+def favicon():
+    return send_from_directory('.', 'ST.ico')
+
 setup_routes(app, socketio, students_sessions, test_manager)
 
 
@@ -99,10 +114,11 @@ setup_routes(app, socketio, students_sessions, test_manager)
 if __name__ == '__main__':
     clear_for_new_test()
     local_ip = get_local_ip()
+    port = load_settings(what="Port")
     print("\n" + "="*50)
     print("\x1b[32m🚀 ЛОКАЛЬНЫЙ ТЕСТ ЗАПУЩЕН\x1b[0m")
     print(f"🔹 IP: \x1b[33m{local_ip}\x1b[0m")
-    print(f"🧑‍🎓 Ученики: http://{local_ip}:5000")
-    print(f"👨‍🏫 Учитель: http://127.0.0.1:5000/teacher")
+    print(f"🧑‍🎓 Ученики: http://{local_ip}:{port}")
+    print(f"👨‍🏫 Учитель: http://127.0.0.1:{port}/teacher")
     print("="*50 + "\n")
-    socketio.run(app, host='0.0.0.0', port=load_settings(what="Port"), debug=False)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
