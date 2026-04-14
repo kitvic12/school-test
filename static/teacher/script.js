@@ -2,12 +2,24 @@ let teacherSocket = null;
 const download_results = true;
 const form_id = document.getElementById('settingsForm');
 const questionForm = document.getElementById('totalQuestions');
+let savedSettingsValues = null;  
 
 
 function getSettings() {
     return fetch('/api/settings')
-        .then(res => res.json())
-        .catch(() => ({TeacherIP, Port, TotalQuestions, Graduations5, Graduations4, Graduations3}));
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch settings');
+            return res.json();
+        })
+        .catch(() => ({
+            TeacherIP: '127.0.0.1',
+            Port: 5000,
+            TotalQuestions: 10,
+            TimePerQuestion: 10,
+            Graduations5: 90,
+            Graduations4: 75,
+            Graduations3: 50
+        }));
 }
 
 settings = getSettings().then(s => {
@@ -15,58 +27,110 @@ settings = getSettings().then(s => {
     <table class="settings-table", style="background-color: transparent">
         <tr>
             <td>IP учителя:</td>
-            <td><input type="text" id="teacherIP" value=${s.TeacherIP} required></td>
+            <td><input type="text" class="settings-parametres" id="teacherIP" value=${s.TeacherIP} required></td>
         </tr>
         <tr>
             <td>Порт:</td>
-            <td><input type="number" id="port" value="${s.Port}" required></td>
+            <td><input type="number" class="settings-parametres" id="port" value="${s.Port}" required></td>
         </tr>
         <tr>
             <td>Всего вопросов:</td>
-            <td><input type="number" id="totalQuestions" value="${s.TotalQuestions}" required></td>
+            <td><input type="number" class="settings-parametres" id="totalQuestions" value="${s.TotalQuestions}" required></td>
+        </tr>
+        <tr>
+            <td>Время на вопрос (сек):</td>
+            <td><input type="number" class="settings-parametres" id="timePerQuestion" value="${s.TimePerQuestion}" required></td>
         </tr>
         <tr>
             <td>Порог для 5:</td>
-            <td><input type="number" id="graduations5" value="${s.Graduations5}" required></td>
+            <td><input type="number" class="settings-parametres" id="graduations5" value="${s.Graduations5}" required></td>
         </tr>
         <tr>
             <td>Порог для 4:</td>
-            <td><input type="number" id="graduations4" value="${s.Graduations4}"required></td>
+            <td><input type="number" class="settings-parametres" id="graduations4" value="${s.Graduations4}"required></td>
         </tr>
         <tr>
             <td>Порог для 3:</td>
-            <td><input type="number" id="graduations3" value="${s.Graduations3}" required></td>
+            <td><input type="number" class="settings-parametres" id="graduations3" value="${s.Graduations3}" required></td>
         </tr>
     </table>
     <p><strong>Максимум баллов:<span id="MaximumScore"> ${s.TotalQuestions * 10}</span>. Наичсляется 10б за ответ с 1 попытки и 5б за ответ со 2 и более попытки</strong></p>
-    <p><button type="submit" onclick="update_settings()">Сохранить настройки</button></p>'
-    `;
+    <p><button type="submit" onclick="update_settings()">Сохранить настройки</button></p>`;
 })
 
 async function formCheck() {
-    const updateMaxScore = () => {
-        const totalInput = document.querySelector('#totalQuestions');
-        const scoreSpan = document.querySelector('#MaximumScore');
-        if (!totalInput || !scoreSpan) {
-            return;
+
+    const showWarning = () => {
+        const el = document.querySelector('#unsavedWarning');
+        if (!el) {
+            const scoreSpan = document.querySelector('#MaximumScore');
+            const warning = document.createElement('div');
+            warning.id = 'unsavedWarning';
+            warning.style.cssText = 'color:red;font-weight:bold;font-size:16px;margin-top:10px;padding:10px;background:#ffe6e6;border:2px solid red;border-radius:5px;text-align:center;';
+            warning.textContent = '⚠️ Настройки не сохранены';
+            if (scoreSpan) scoreSpan.parentElement.parentElement.insertAdjacentElement('afterend', warning);
         }
-        const total = parseInt(totalInput.value, 10);
-        scoreSpan.textContent = ` ${Number.isNaN(total) ? 0 : total * 10}`;
     };
 
-    const attachListener = () => {
-        const totalInput = document.querySelector('#totalQuestions');
-        if (!totalInput) {
-            return false;
-        }
-        totalInput.addEventListener('input', updateMaxScore);
-        updateMaxScore();
-        return true;
+    const hideWarning = () => {
+        const el = document.querySelector('#unsavedWarning');
+        if (el) el.style.display = 'none';
     };
 
-    if (!attachListener()) {
-        setTimeout(formCheck, 300);
+    const check = () => {
+        if (!savedSettingsValues) return;
+        const fields = [
+            { id: 'teacherIP', key: 'TeacherIP', parse: v => v },
+            { id: 'port', key: 'Port', parse: v => parseInt(v, 10) },
+            { id: 'totalQuestions', key: 'TotalQuestions', parse: v => parseInt(v, 10) },
+            { id: 'timePerQuestion', key: 'TimePerQuestion', parse: v => parseInt(v, 10) },
+            { id: 'graduations5', key: 'Graduations5', parse: v => parseInt(v, 10) },
+            { id: 'graduations4', key: 'Graduations4', parse: v => parseInt(v, 10) },
+            { id: 'graduations3', key: 'Graduations3', parse: v => parseInt(v, 10) }
+        ];
+        for (const f of fields) {
+            const input = document.getElementById(f.id);
+            if (input && f.parse(input.value) !== savedSettingsValues[f.key]) {
+                showWarning();
+                return;
+            }
+        }
+        hideWarning();
+    };
+
+
+    if (settings && typeof settings.then === 'function') {
+        settings.then((s) => {
+            if (!s || typeof s !== 'object') return;
+            savedSettingsValues = {
+                TeacherIP: s.TeacherIP,
+                Port: s.Port,
+                TotalQuestions: s.TotalQuestions,
+                TimePerQuestion: s.TimePerQuestion,
+                Graduations5: s.Graduations5,
+                Graduations4: s.Graduations4,
+                Graduations3: s.Graduations3
+            };
+        });
     }
+
+    const attach = () => {
+        const ids = ['teacherIP','port','totalQuestions','timePerQuestion','graduations5','graduations4','graduations3'];
+        let ok = true;
+        ids.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('input', check);
+                input.addEventListener('change', check);
+            } else {
+                ok = false;
+            }
+        });
+        if (ok) setTimeout(check, 200);
+        return ok;
+    };
+
+    if (!attach()) setTimeout(formCheck, 300);
 }
 
 
@@ -79,6 +143,7 @@ function update_settings() {
     const TeacherIP = document.getElementById('teacherIP').value;
     const Port = parseInt(document.getElementById('port').value, 10);
     const TotalQuestions = parseInt(document.getElementById('totalQuestions').value, 10);
+    const TimePerQuestion = parseInt(document.getElementById('timePerQuestion').value, 10);
     const Graduations5 = parseInt(document.getElementById('graduations5').value, 10);
     const Graduations4 = parseInt(document.getElementById('graduations4').value, 10);
     const Graduations3 = parseInt(document.getElementById('graduations3').value, 10);
@@ -87,16 +152,44 @@ function update_settings() {
     fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ TeacherIP, Port, TotalQuestions, Graduations5, Graduations4, Graduations3 }),
+        body: JSON.stringify({ TeacherIP, Port, TotalQuestions, TimePerQuestion, Graduations5, Graduations4, Graduations3 }),
         credentials: 'include'
     }).then(res => res.json()).then(data => {
         if (data.error) {
             alert(`Ошибка: ${data.error}`);
         } else {
-            alert('Настройки сохранены');
+            if (data.port_changed) {
+                alert(`⚠️ Блокировка порта:\nПорт изменён с ${data.old_port} на ${data.new_port}\n\nНастройки сохранены в файл, но сервер ещё работает на старом порту.\nДля применения нового порта нужно перезагрузить сервер вручную!\n\nОстановите сервер (Ctrl+C) и запустите его заново.`);
+            } else {
+                alert('✅ Настройки сохранены');
+            }
+
+
+            savedSettingsValues = {
+                TeacherIP: TeacherIP,
+                Port: Port,
+                TotalQuestions: TotalQuestions,
+                TimePerQuestion: TimePerQuestion,
+                Graduations5: Graduations5,
+                Graduations4: Graduations4,
+                Graduations3: Graduations3
+            };
+
+
+            const unsavedWarning = document.querySelector('#unsavedWarning');
+            if (unsavedWarning) {
+                unsavedWarning.remove();
+            }
+            
+
+            console.log('📨 Отправляю обновленные настройки студентам:', {TotalQuestions, TimePerQuestion});
+            teacherSocket.emit('update_student_settings', {
+                TotalQuestions: TotalQuestions,
+                TimePerQuestion: TimePerQuestion
+            });
         }
     }).catch(() => {
-        alert('Ошибка при сохранении настроек');
+        alert('❌ Ошибка при сохранении настроек');
     });
 }
 
@@ -192,8 +285,10 @@ function updateButtons(status) {
     const activeInfo = document.getElementById('activeTestInfo');
     const variantBtn = document.getElementById('variant-btns');
     const newBtn = document.getElementById('newBtn');
+    const settingsParametrs = document.querySelectorAll('.settings-parametres');
 
     if (status.active) {
+        settingsParametrs.forEach(input => input.disabled = true);
         startPowers.disabled = true;
         startSquares.disabled = true;
         stopBtn.style.display = 'inline-block';
@@ -203,6 +298,7 @@ function updateButtons(status) {
         newBtn.style.display = 'none';
         
     } else if (!status.active && !status.finalized) {
+        settingsParametrs.forEach(input => input.disabled = false);
         startPowers.disabled = false;
         startSquares.disabled = false;
         stopBtn.style.display = 'none';
@@ -212,6 +308,7 @@ function updateButtons(status) {
         newBtn.style.display = 'inline-block';
 
     } else if (!status.active && status.finalized) {
+        settingsParametrs.forEach(input => input.disabled = false);
         startPowers.disabled = false;
         startSquares.disabled = false;
         stopBtn.style.display = 'none';
@@ -221,6 +318,7 @@ function updateButtons(status) {
         newBtn.style.display = 'none';
 
     } else {
+        settingsParametrs.forEach(input => input.disabled = false);
         startPowers.disabled = false;
         startSquares.disabled = false;
         stopBtn.style.display = 'none';
@@ -239,14 +337,22 @@ function initSocket() {
 
     teacherSocket.on('connect', () => {
         console.log('✅ Учитель подключён');
-        loadResults([]); // Очистить таблицу перед загрузкой данных
+        
+        fetch('/api/test-status', { credentials: 'include' })
+            .then(res => res.json())
+            .then(data => {
+                console.log('📊 Статус теста при подключении:', data);
+                updateButtons(data);
+            })
+            .catch(err => console.error('❌ Ошибка получения статуса теста:', err));
+        
+        loadResults([]); 
         fetch('/api/check-login', { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 if (data.loggedIn) {
                     teacherSocket.emit('get_students');
                 } else {
-                    // Если не авторизован, возможно, перезагрузить страницу или показать ошибку
                     console.log('Не авторизован');
                 }
             })
@@ -277,6 +383,28 @@ function initSocket() {
     teacherSocket.on('test_stopped', () => {
         updateButtons({active: false, finalized: false});
         document.getElementById('activeTestInfo').style.display = 'none';
+
+        setTimeout(() => {
+            const t = document.getElementById('totalQuestions');
+            const tp = document.getElementById('timePerQuestion');
+            const ip = document.getElementById('teacherIP');
+            const p = document.getElementById('port');
+            const g5 = document.getElementById('graduations5');
+            const g4 = document.getElementById('graduations4');
+            const g3 = document.getElementById('graduations3');
+
+            if (t && tp && ip && p && g5 && g4 && g3) {
+                savedSettingsValues = {
+                    TeacherIP: ip.value,
+                    Port: parseInt(p.value, 10),
+                    TotalQuestions: parseInt(t.value, 10),
+                    TimePerQuestion: parseInt(tp.value, 10),
+                    Graduations5: parseInt(g5.value, 10),
+                    Graduations4: parseInt(g4.value, 10),
+                    Graduations3: parseInt(g3.value, 10)
+                };
+            }
+        }, 100);
     });
 
 
@@ -358,7 +486,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 document.getElementById('newBtn').addEventListener('click', () => {
     teacherSocket.emit('new_test')
     updateButtons({active: false, finalized: true})
-и})
+});
 
 document.getElementById('reloadBtn').addEventListener('click', () => {
     teacherSocket.emit('reload_students')

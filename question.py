@@ -1,8 +1,7 @@
 import random
 import math
 
-def generate_question_advanced(mode: str, asked_questions: list, question_type: str = 'random'):
-    print(mode, asked_questions, question_type)
+def generate_question_advanced(mode: str, asked_questions_dict: dict, question_type: str = 'random'):
     if mode == 'sqrt':
         all_bases = list(range(10, 31)) 
     elif mode == 'powers':
@@ -10,20 +9,28 @@ def generate_question_advanced(mode: str, asked_questions: list, question_type: 
     else:
         raise ValueError("mode must be 'sqrt' or 'powers'")
 
+    if mode not in asked_questions_dict:
+        asked_questions_dict[mode] = []
+
+    asked_set = set()
+    for item in asked_questions_dict[mode]:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            asked_set.add((item[0], item[1]))
+    
     possible_combinations = [
         (base, qtype)
         for base in all_bases
         for qtype in ['find_result', 'find_base']
-        if (base, qtype) not in asked_questions
+        if (base, qtype) not in asked_set
     ]
 
     if not possible_combinations:
         raise ValueError("Все возможные вопросы уже заданы!")
 
-
     selected_base, selected_qtype = random.choice(possible_combinations)
-    updated_asked = asked_questions + [(selected_base, selected_qtype)]
 
+    updated_dict = {k: v.copy() if isinstance(v, list) else v for k, v in asked_questions_dict.items()}
+    updated_dict[mode].append([selected_base, selected_qtype])
 
     if mode == 'sqrt':
         result_value = selected_base ** 2
@@ -37,7 +44,7 @@ def generate_question_advanced(mode: str, asked_questions: list, question_type: 
         question = result_value
         returned_type = 'result'  
 
-    return question, updated_asked, returned_type
+    return question, updated_dict, returned_type
 
 
 

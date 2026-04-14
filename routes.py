@@ -3,7 +3,7 @@ from flask_socketio import emit
 from datetime import datetime
 from auth import login_teacher
 from question import generate_question_advanced, check_answer
-from writer import save_students, load_students, load_settings, delete_student
+from writer import save_students, load_students, load_settings, delete_student, clear_for_new_test
 
 
 def calculate_grade(score):
@@ -85,12 +85,18 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         student_key = make_student_key(name, comp_num)
         students_data = app.students_data.setdefault('students', {})
         record = students_data.get(student_key, {})
+        
+
+        asked_questions = record.get('asked_questions', {'sqrt': [], 'powers': []})
+        if isinstance(asked_questions, list):  
+            asked_questions = {'sqrt': [], 'powers': []}
+        
         record.update({
             'name': name,
             'pc': comp_num,
             'computer_number': comp_num,
             'type': None,
-            'askedquestions': record.get('askedquestions', []),
+            'asked_questions': asked_questions,
             'score': record.get('score', None),
             'grade': record.get('grade', None),
             'timestamp': record.get('timestamp'),
@@ -131,7 +137,8 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         student_record.update({
             'score': score,
             'grade': grade,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'asked_questions': {'sqrt': [], 'powers': []} 
         })
         save_students(app.students_data)
 
@@ -147,13 +154,18 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         sid = request.sid
         student_key = students_sessions.pop(sid, None)
         if student_key:
+            delete_student(request.remote_addr)
+            print(f"Student with SID {sid} disconnected and removed. IP: {request.remote_addr}  ")
+            app.students_data = load_students()
             emit('logout_success', {}, namespace='/student')
             emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
+
 
     @socketio.on('disconnect', namespace='/student')
     def handle_student_disconnect():
         sid = request.sid
         students_sessions.pop(sid, None)
+
 
     @socketio.on('start_test', namespace='/teacher')
     def handle_start_test(data):
@@ -170,6 +182,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('test_started', {'variant': variant}, namespace='/student', broadcast=True)
             emit('test_started', {'variant': variant}, namespace='/teacher', broadcast=True)
 
+
     @socketio.on('stop_test', namespace='/teacher')
     def handle_stop_test():
         if not session.get('logged_in'):
@@ -183,6 +196,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('test_stopped', {}, namespace='/student', broadcast=True)
             emit('test_stopped', {}, namespace='/teacher', broadcast=True)
             emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
+
 
     @socketio.on('new_test', namespace='/teacher')
     def handle_open_new_test():
@@ -198,6 +212,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         emit('new_test', {}, namespace='/student', broadcast=True)
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
+
     @socketio.on('finalize_test', namespace='/teacher')
     def handle_finalize_test():
         if not session.get('logged_in'):
@@ -208,17 +223,22 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             'variant': None,
             'finalized': True
         }
+
+        app.students_data['students'] = {}
+        students_sessions.clear()
+
         save_students(app.students_data)
+        clear_for_new_test()
         emit('test_finalized', {}, namespace='/student', broadcast=True)
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
+
 
     @socketio.on('kick_student', namespace='/teacher')
     def handle_kick_student(data):
         if not session.get('logged_in'):
             return
         target_ip = data.get('ip')
-        
-        # Find student by IP in all students (active or disconnected)
+
         students_data = app.students_data['students']
         student_key_to_kick = None
         sid_to_notify = None
@@ -228,7 +248,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                 student_key_to_kick = key
                 break
         
-        # If student has active session, find their SID to notify them
+
         if student_key_to_kick:
             for sid, sk in list(students_sessions.items()):
                 if sk == student_key_to_kick:
@@ -236,11 +256,10 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                     students_sessions.pop(sid, None)
                     break
             
-            # Delete the student from persistent storage
-            delete_student(student_key_to_kick)
+            delete_student(target_ip)
             app.students_data = load_students()
             
-            # Notify the student if they have active session
+
             if sid_to_notify:
                 try:
                     emit('kicked_to_login', {}, room=sid_to_notify, namespace='/student')
@@ -249,22 +268,35 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
+
     @socketio.on('new_quest', namespace='/student')
     def handle_new_quest(data):
         if not test_manager.is_test_active():
             emit('quest_error', {'error': 'Тест не активен'}, namespace='/student')
             return
+        
+        sid = request.sid
+        student_key = students_sessions.get(sid)
+        if not student_key:
+            emit('quest_error', {'error': 'Студент не зарегистрирован'}, namespace='/student')
+            return
+        student_record = app.students_data['students'].get(student_key, {})
+        asked_questions = student_record.get('asked_questions', {'sqrt': [], 'powers': []})
+        
         mode = normalize_variant(data.get('mode'))
-        asked_questions = data.get('asked_questions', [])
         try:
-            question, updated_questions, returned_type = generate_question_advanced(mode, asked_questions)
+            question, updated_questions_dict, returned_type = generate_question_advanced(mode, asked_questions)
+            student_record['asked_questions'] = updated_questions_dict
+            save_students(app.students_data)
+            
             emit('new_quest', {
                 'question': question,
                 'returned_type': returned_type,
-                'updated_questions': updated_questions
+                'updated_questions': updated_questions_dict[mode]  
             }, namespace='/student')
         except Exception as exc:
             emit('quest_error', {'error': str(exc)}, namespace='/student')
+
 
     @socketio.on('check_quest', namespace='/student')
     def handle_check_quest(data):
@@ -288,9 +320,19 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             return
         emit('updateQuestionsCount', {'count': data.get('count')}, namespace='/student', broadcast=True)
 
+
     @socketio.on('reload_students', namespace='/teacher')
     def handle_reload_students():
         if not session.get('logged_in'):
             return
         app.students_data = load_students()
         emit('update_students', get_persisted_student_list(app), namespace='/teacher')
+
+    @socketio.on('update_student_settings', namespace='/teacher')
+    def handle_update_student_settings(data):
+        settings = load_settings()
+        student_settings = {
+            'TotalQuestions': data.get('TotalQuestions') or settings.get('TotalQuestions', 10),
+            'TimePerQuestion': data.get('TimePerQuestion') or settings.get('TimePerQuestion', 10)
+        }
+        emit('update_student_settings', student_settings, namespace='/student', broadcast=True)

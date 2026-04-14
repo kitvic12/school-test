@@ -1,5 +1,15 @@
-const QUESTION_TIME = 10;
-const TOTAL_QUESTIONS = 1;
+let QUESTION_TIME = 10;  
+let TOTAL_QUESTIONS = 10;
+
+
+fetch('/api/get_student_settings')
+    .then(response => response.json())
+    .then(data => {
+        QUESTION_TIME = data.TimePerQuestion || 10;
+        TOTAL_QUESTIONS = data.TotalQuestions || 1;
+        console.log(`✅ Загружены настройки: ${TOTAL_QUESTIONS} вопросов, ${QUESTION_TIME}сек на вопрос`);
+    })
+    .catch(err => console.log('⚠️ Не удалось загрузить настройки:', err));
 
 const logoutBtn = document.getElementById('logout-student-btn');
 const error_place = document.getElementById('error')
@@ -11,7 +21,6 @@ class StudentTestSystem {
         this.testActive = false;
         this.testVariant = null;
         this.testFinalized = false;
-        this.usedQuestions = [];
         this.computerNumber = '';
     }
 
@@ -75,7 +84,6 @@ class StudentTestSystem {
             console.log("Generating unique question...");
             socket.emit('new_quest', { 
                 mode: this.testVariant, 
-                asked_questions: this.usedQuestions,
                 question_type: 'random' 
             });
             console.log("Emitting new_quest event...");
@@ -86,9 +94,8 @@ class StudentTestSystem {
                 socket.off('quest_error', handleQuestError);
                 
 
-                const { question, returned_type, updated_questions } = data;
+                const { question, returned_type } = data;
 
-                this.usedQuestions = updated_questions;
                 let questionText = '';
 
                 if (returned_type === 'base') {
@@ -287,7 +294,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const answerInput = document.getElementById('answer');
     const submitBtn = document.getElementById('submit-btn');
 
-    // Проверяем, не перезагрузился ли сервер
     async function checkServerSessionAndRestore() {
         try {
             const response = await fetch('/api/server-session');
@@ -296,22 +302,18 @@ document.addEventListener('DOMContentLoaded', function () {
             const savedServerSessionId = localStorage.getItem('server_session_id');
             
             if (savedServerSessionId && savedServerSessionId !== currentServerSessionId) {
-                // Сервер перезагрузился - очищаем хранилище
                 localStorage.clear();
                 localStorage.setItem('server_session_id', currentServerSessionId);
                 return;
             }
-            // Сохраняем ID текущей сессии сервера
             localStorage.setItem('server_session_id', currentServerSessionId);
         } catch (e) {
             console.log('Ошибка при проверке сессии сервера:', e);
         }
     }
 
-    // Проверяем сеанс сервера перед восстановлением
     checkServerSessionAndRestore();
 
-    // Восстанавливаем сеанс из localStorage при загрузке
     const savedSession = localStorage.getItem('student_session');
     if (savedSession) {
         try {
@@ -327,8 +329,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 waitBlock.style.display = 'block';
                 title.textContent = 'Ожидание';
                 logoutBtn.style.display = 'inline-block';
-                
-                // Переподключаемся с сохраненной информацией
+
                 socket.emit('student_register', {
                     student_name: session.name,
                     computer_number: session.computerNumber
@@ -375,14 +376,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     socket.on('test_finalized', () => {
-        regBlock.style.display = 'block'; 
-        testBlock.style.display = 'none'; 
-        resultBlock.style.display = 'none';
-        waitBlock.style.display = 'none'; 
-        title.textContent = 'Регистрация'; 
+        localStorage.removeItem('student_session');
+        studentSystem.registered = false;
         studentSystem.testActive = false;
+        studentSystem.testVariant = null;
         studentSystem.usedQuestions = [];
+        regBlock.style.display = 'block';
+        testBlock.style.display = 'none';
+        resultBlock.style.display = 'none';
+        waitBlock.style.display = 'none';
+        title.textContent = 'Регистрация';
+        nameInput.value = '';
+        compInput.value = '';
+        answerInput.value = '';
         logoutBtn.style.display = 'none';
+        questionCount = 0;
+        score = 0;
     });
 
     socket.on('kicked_to_login', () => {
@@ -464,5 +473,10 @@ document.addEventListener('DOMContentLoaded', function () {
     logoutBtn.addEventListener('click', () => {
         if (!confirm('Выйти из теста?')) return;
         socket.emit('student_logout');
+    });
+
+    socket.on('update_student_settings', (data) => {
+        TOTAL_QUESTIONS = data.TotalQuestions;
+        QUESTION_TIME = data.TimePerQuestion;
     });
 });

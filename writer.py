@@ -70,11 +70,14 @@ def clear_for_new_test():
         print(f"Error clearing students: {e}")
 
 
-def delete_student(student_id):
+def delete_student(ip):
     try:
         data = load_students()
-        if student_id in data.get('students', {}):
-            del data['students'][student_id]
+        students = data.get('students', {})
+        to_remove = [sid for sid, info in students.items() if info.get('ip') == ip]
+        for sid in to_remove:
+            del students[sid]
+        if to_remove:
             save_students(data)
     except Exception as e:
         print(f"Error deleting student: {e}")
