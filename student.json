@@ -1,30 +1,9 @@
 {
     "students": {
-        "1|1-101": {
-            "name": "1",
-            "pc": "1-101",
-            "computer_number": "1-101",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": [
-                    [
-                        3,
-                        "find_base"
-                    ]
-                ]
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.246",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "китвик гей|402": {
-            "name": "Китвик гей",
-            "pc": "402",
-            "computer_number": "402",
+        "поляков|402 5": {
+            "name": "Поляков",
+            "pc": "402 5",
+            "computer_number": "402 5",
             "type": null,
             "asked_questions": {
                 "sqrt": [],
@@ -33,14 +12,14 @@
             "score": null,
             "grade": null,
             "timestamp": null,
-            "ip": "172.21.92.221",
+            "ip": "172.21.93.44",
             "connected": true,
             "correct_answers": 0
         }
     },
     "test_state": {
         "active": false,
-        "variant": "powers",
-        "finalized": false
+        "variant": null,
+        "finalized": true
     }
 }

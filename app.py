@@ -117,7 +117,6 @@ def get_test_status():
 
 @app.route('/api/settings', methods=['POST'])
 def save_settings():
-    # Проверка: запрос должен идти с локального IP (только учитель)
     client_ip = request.remote_addr
     if client_ip not in ['127.0.0.1', 'localhost', '::1', '0.0.0.0']:
         return jsonify({'error': 'Доступ запрещён. Только локальный доступ'}), 403

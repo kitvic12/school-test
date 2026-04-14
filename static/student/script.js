@@ -97,24 +97,24 @@ class StudentTestSystem {
 
                 const { question, returned_type } = data;
 
-                let questionText = '';
+                let questionHtml = '';
 
                 if (returned_type === 'base') {
                     if (this.testVariant === 'sqrt') {
-                        questionText = `Чему равен квадрат числа ${question}<sup>2</sup>?`;
+                        questionHtml = `Чему равен квадрат числа ${question}<sup>2</sup>?`;
                     } else {
-                        questionText = `Чему равно 2<sup>${question}</sup>?`;
+                        questionHtml = `Чему равно 2<sup>${question}</sup>?`;
                     }
                 } else {
                     if (this.testVariant === 'sqrt') {
-                        questionText = `Чему равен корень из ${question}?`;
+                        questionHtml = `Чему равен корень из ${question}?`;
                     } else {
-                        questionText = `В какую степень нужно возвести 2, чтобы получить ${question}?`;
+                        questionHtml = `В какую степень нужно возвести 2, чтобы получить ${question}?`;
                     }
                 }
                 
                 resolve({ 
-                    questionHtml: questionText, 
+                    questionHtml: questionHtml, 
                     question: question, 
                     questionType: returned_type,
                     answer: undefined  
@@ -206,7 +206,25 @@ async function generateQuestion() {
     if (!qData) return;
     currentQuestionData = qData;
     attemptCount = 0;
-    document.getElementById('question').innerHTML = `${qData.questionHtml} (Вопрос ${questionCount + 1}/${TOTAL_QUESTIONS})`;
+    
+    // Использую textContent для безопасного отображения вопроса с HTML элементами
+    const questionElement = document.getElementById('question');
+    questionElement.innerHTML = ''; // Очищаю элемент
+    
+    // Парсю HTML из questionHtml
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = qData.questionHtml;
+    
+    // Добавляю содержимое в реальный элемент
+    while (tempDiv.firstChild) {
+        questionElement.appendChild(tempDiv.firstChild);
+    }
+    
+    // Добавляю текст с номером вопроса
+    const questionNumber = document.createElement('span');
+    questionNumber.textContent = ` (Вопрос ${questionCount + 1}/${TOTAL_QUESTIONS})`;
+    questionElement.appendChild(questionNumber);
+    
     document.getElementById('answer').value = '';
     document.getElementById('answer').focus();
     startQuestionTimer();
