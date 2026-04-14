@@ -124,22 +124,56 @@ def save_settings():
     if is_active():
         return jsonify({'error': 'Нельзя менять настройки во время активного теста'}), 400
     
+    data = request.get_json()
+    
+    # Валидация параметров
+    try:
+        # Port validation
+        port = int(data.get('Port', 5000))
+        if port < 1 or port > 65535:
+            return jsonify({'error': 'Порт должен быть от 1 до 65535'}), 400
+        
+        # TotalQuestions validation
+        total_questions = int(data.get('TotalQuestions', 10))
+        if total_questions < 1:
+            return jsonify({'error': 'Количество вопросов должно быть >= 1'}), 400
+        
+        # TimePerQuestion validation
+        time_per_question = int(data.get('TimePerQuestion', 10))
+        if time_per_question < 1:
+            return jsonify({'error': 'Время на вопрос должно быть >= 1'}), 400
+        
+        # Graduations validation
+        grad5 = int(data.get('Graduations5', 90))
+        grad4 = int(data.get('Graduations4', 75))
+        grad3 = int(data.get('Graduations3', 50))
+        
+        if not (0 <= grad5 <= 100 and 0 <= grad4 <= 100 and 0 <= grad3 <= 100):
+            return jsonify({'error': 'Пороги для оценок должны быть от 0 до 100'}), 400
+        
+        if not (grad5 >= grad4 >= grad3):
+            return jsonify({'error': 'Пороги должны быть упорядочены: 5 >= 4 >= 3'}), 400
+        
+        # TeacherIP validation (базовая проверка)
+        teacher_ip = str(data.get('TeacherIP', '127.0.0.1')).strip()
+        if not teacher_ip:
+            return jsonify({'error': 'IP адрес не может быть пустым'}), 400
+        
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': f'Ошибка в параметрах: {str(e)}'}), 400
 
     old_settings = load_settings()
     old_port = old_settings.get('Port', 5000) if old_settings else 5000
     
-    data = request.get_json()
-    new_port = data.get("Port", old_port)
-    
     update_settings(data)
 
-    port_changed = (old_port != new_port)
+    port_changed = (old_port != port)
     
     return jsonify({
         'message': 'Настройки сохранены',
         'port_changed': port_changed,
         'old_port': old_port,
-        'new_port': new_port
+        'new_port': port
     })
 
 @app.route('/ST.ico')

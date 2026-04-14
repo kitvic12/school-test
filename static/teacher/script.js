@@ -56,9 +56,19 @@ settings = getSettings().then(s => {
     </table>
     <p><strong>Максимум баллов:<span id="MaximumScore"> ${s.TotalQuestions * 10}</span>. Наичсляется 10б за ответ с 1 попытки и 5б за ответ со 2 и более попытки</strong></p>
     <p><button type="submit" onclick="update_settings()">Сохранить настройки</button></p>`;
+    return s;
 })
 
 async function formCheck() {
+
+    const updateMaxScore = () => {
+        const totalInput = document.getElementById('totalQuestions');
+        const scoreSpan = document.getElementById('MaximumScore');
+        if (totalInput && scoreSpan) {
+            const total = parseInt(totalInput.value, 10) || 0;
+            scoreSpan.textContent = ` ${total * 10}`;
+        }
+    };
 
     const showWarning = () => {
         const el = document.querySelector('#unsavedWarning');
@@ -78,19 +88,22 @@ async function formCheck() {
     };
 
     const check = () => {
+        updateMaxScore();
         if (!savedSettingsValues) return;
         const fields = [
-            { id: 'teacherIP', key: 'TeacherIP', parse: v => v },
-            { id: 'port', key: 'Port', parse: v => parseInt(v, 10) },
-            { id: 'totalQuestions', key: 'TotalQuestions', parse: v => parseInt(v, 10) },
-            { id: 'timePerQuestion', key: 'TimePerQuestion', parse: v => parseInt(v, 10) },
-            { id: 'graduations5', key: 'Graduations5', parse: v => parseInt(v, 10) },
-            { id: 'graduations4', key: 'Graduations4', parse: v => parseInt(v, 10) },
-            { id: 'graduations3', key: 'Graduations3', parse: v => parseInt(v, 10) }
+            { id: 'teacherIP', key: 'TeacherIP', parse: v => String(v).trim() },
+            { id: 'port', key: 'Port', parse: v => parseInt(v, 10) || 0 },
+            { id: 'totalQuestions', key: 'TotalQuestions', parse: v => parseInt(v, 10) || 0 },
+            { id: 'timePerQuestion', key: 'TimePerQuestion', parse: v => parseInt(v, 10) || 0 },
+            { id: 'graduations5', key: 'Graduations5', parse: v => parseInt(v, 10) || 0 },
+            { id: 'graduations4', key: 'Graduations4', parse: v => parseInt(v, 10) || 0 },
+            { id: 'graduations3', key: 'Graduations3', parse: v => parseInt(v, 10) || 0 }
         ];
         for (const f of fields) {
             const input = document.getElementById(f.id);
-            if (input && f.parse(input.value) !== savedSettingsValues[f.key]) {
+            const currentValue = input ? f.parse(input.value) : null;
+            const savedValue = savedSettingsValues[f.key];
+            if (currentValue !== savedValue) {
                 showWarning();
                 return;
             }
@@ -103,14 +116,15 @@ async function formCheck() {
         settings.then((s) => {
             if (!s || typeof s !== 'object') return;
             savedSettingsValues = {
-                TeacherIP: s.TeacherIP,
-                Port: s.Port,
-                TotalQuestions: s.TotalQuestions,
-                TimePerQuestion: s.TimePerQuestion,
-                Graduations5: s.Graduations5,
-                Graduations4: s.Graduations4,
-                Graduations3: s.Graduations3
+                TeacherIP: String(s.TeacherIP || '127.0.0.1').trim(),
+                Port: parseInt(s.Port, 10) || 5000,
+                TotalQuestions: parseInt(s.TotalQuestions, 10) || 10,
+                TimePerQuestion: parseInt(s.TimePerQuestion, 10) || 10,
+                Graduations5: parseInt(s.Graduations5, 10) || 90,
+                Graduations4: parseInt(s.Graduations4, 10) || 75,
+                Graduations3: parseInt(s.Graduations3, 10) || 50
             };
+            updateMaxScore();
         });
     }
 
@@ -140,13 +154,13 @@ formCheck();
 
 
 function update_settings() { 
-    const TeacherIP = document.getElementById('teacherIP').value;
-    const Port = parseInt(document.getElementById('port').value, 10);
-    const TotalQuestions = parseInt(document.getElementById('totalQuestions').value, 10);
-    const TimePerQuestion = parseInt(document.getElementById('timePerQuestion').value, 10);
-    const Graduations5 = parseInt(document.getElementById('graduations5').value, 10);
-    const Graduations4 = parseInt(document.getElementById('graduations4').value, 10);
-    const Graduations3 = parseInt(document.getElementById('graduations3').value, 10);
+    const TeacherIP = String(document.getElementById('teacherIP').value).trim();
+    const Port = parseInt(document.getElementById('port').value, 10) || 5000;
+    const TotalQuestions = parseInt(document.getElementById('totalQuestions').value, 10) || 10;
+    const TimePerQuestion = parseInt(document.getElementById('timePerQuestion').value, 10) || 10;
+    const Graduations5 = parseInt(document.getElementById('graduations5').value, 10) || 90;
+    const Graduations4 = parseInt(document.getElementById('graduations4').value, 10) || 75;
+    const Graduations3 = parseInt(document.getElementById('graduations3').value, 10) || 50;
     
 
     fetch('/api/settings', {
@@ -384,6 +398,7 @@ function initSocket() {
         updateButtons({active: false, finalized: false});
         document.getElementById('activeTestInfo').style.display = 'none';
 
+        // Обновляем savedSettingsValues чтобы система предупреждений продолжала работать после остановки теста
         setTimeout(() => {
             const t = document.getElementById('totalQuestions');
             const tp = document.getElementById('timePerQuestion');
@@ -395,13 +410,13 @@ function initSocket() {
 
             if (t && tp && ip && p && g5 && g4 && g3) {
                 savedSettingsValues = {
-                    TeacherIP: ip.value,
-                    Port: parseInt(p.value, 10),
-                    TotalQuestions: parseInt(t.value, 10),
-                    TimePerQuestion: parseInt(tp.value, 10),
-                    Graduations5: parseInt(g5.value, 10),
-                    Graduations4: parseInt(g4.value, 10),
-                    Graduations3: parseInt(g3.value, 10)
+                    TeacherIP: String(ip.value).trim(),
+                    Port: parseInt(p.value, 10) || 5000,
+                    TotalQuestions: parseInt(t.value, 10) || 10,
+                    TimePerQuestion: parseInt(tp.value, 10) || 10,
+                    Graduations5: parseInt(g5.value, 10) || 90,
+                    Graduations4: parseInt(g4.value, 10) || 75,
+                    Graduations3: parseInt(g3.value, 10) || 50
                 };
             }
         }, 100);
