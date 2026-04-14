@@ -1,200 +1,29 @@
 {
     "students": {
-        "шелковникова|402-1": {
-            "name": "Шелковникова",
-            "pc": "402-1",
-            "computer_number": "402-1",
+        "1|1-101": {
+            "name": "1",
+            "pc": "1-101",
+            "computer_number": "1-101",
             "type": null,
             "asked_questions": {
                 "sqrt": [],
-                "powers": []
+                "powers": [
+                    [
+                        3,
+                        "find_base"
+                    ]
+                ]
             },
             "score": null,
             "grade": null,
             "timestamp": null,
-            "ip": "172.21.93.176",
+            "ip": "172.21.92.246",
             "connected": true,
             "correct_answers": 0
-        },
-        "лысов|3-402": {
-            "name": "Лысов",
-            "pc": "3-402",
-            "computer_number": "3-402",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.126",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "малышев  макар|402": {
-            "name": "Малышев  Макар",
-            "pc": "402",
-            "computer_number": "402",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.24",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "поляков|402 5": {
-            "name": "Поляков",
-            "pc": "402 5",
-            "computer_number": "402 5",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.44",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "мелих|11": {
-            "name": "Мелих",
-            "pc": "11",
-            "computer_number": "11",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.144",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "четверикова соня|12": {
-            "name": "Четверикова Соня",
-            "pc": "12",
-            "computer_number": "12",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.188",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "крупенин|402-6": {
-            "name": "Крупенин",
-            "pc": "402-6",
-            "computer_number": "402-6",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.54",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "аверина|402-10": {
-            "name": "Аверина",
-            "pc": "402-10",
-            "computer_number": "402-10",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.124",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "савенков|402-15": {
-            "name": "Савенков",
-            "pc": "402-15",
-            "computer_number": "402-15",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.55",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "карасев|402-4": {
-            "name": "Карасев",
-            "pc": "402-4",
-            "computer_number": "402-4",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.210",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "китвик гей|402": {
-            "name": "Китвик гей",
-            "pc": "402",
-            "computer_number": "402",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.92.221",
-            "connected": true,
-            "correct_answers": 0
-        },
-        "иванов|403-1": {
-            "name": "Иванов",
-            "pc": "403-1",
-            "computer_number": "403-1",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": 20,
-            "grade": "2",
-            "timestamp": "2026-04-14 11:37:12",
-            "ip": "127.0.0.1",
-            "connected": true,
-            "correct_answers": 2
         }
     },
     "test_state": {
-        "active": true,
+        "active": false,
         "variant": "powers",
         "finalized": false
     }

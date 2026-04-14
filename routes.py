@@ -32,6 +32,8 @@ def make_student_key(name, pc):
 
 
 def get_persisted_student_list(app):
+    # Перезагружаем данные из файла чтобы получить актуальный список студентов
+    app.students_data = load_students()
     result = []
     for record in app.students_data.get('students', {}).values():
         student = record.copy()
