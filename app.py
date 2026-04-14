@@ -96,7 +96,6 @@ def api_settings():
 
 @app.route('/api/get_student_settings', methods=['GET'])
 def get_student_settings():
-    """Возвращает настройки для страницы студента"""
     settings = load_settings()
     if settings is None:
         return jsonify({
@@ -110,7 +109,6 @@ def get_student_settings():
 
 @app.route('/api/test-status', methods=['GET'])
 def get_test_status():
-    """Возвращает текущий статус теста"""
     return jsonify({
         'active': test_manager.is_test_active(),
         'variant': test_manager.current_variant,
@@ -119,6 +117,11 @@ def get_test_status():
 
 @app.route('/api/settings', methods=['POST'])
 def save_settings():
+    # Проверка: запрос должен идти с локального IP (только учитель)
+    client_ip = request.remote_addr
+    if client_ip not in ['127.0.0.1', 'localhost', '::1', '0.0.0.0']:
+        return jsonify({'error': 'Доступ запрещён. Только локальный доступ'}), 403
+    
     if not session.get('logged_in'):
         return jsonify({'error': 'Не авторизован'}), 401
     if is_active():
@@ -126,24 +129,21 @@ def save_settings():
     
     data = request.get_json()
     
-    # Валидация параметров
     try:
-        # Port validation
         port = int(data.get('Port', 5000))
         if port < 1 or port > 65535:
             return jsonify({'error': 'Порт должен быть от 1 до 65535'}), 400
-        
-        # TotalQuestions validation
+
         total_questions = int(data.get('TotalQuestions', 10))
         if total_questions < 1:
             return jsonify({'error': 'Количество вопросов должно быть >= 1'}), 400
-        
-        # TimePerQuestion validation
+
         time_per_question = int(data.get('TimePerQuestion', 10))
         if time_per_question < 1:
             return jsonify({'error': 'Время на вопрос должно быть >= 1'}), 400
         
-        # Graduations validation
+
+
         grad5 = int(data.get('Graduations5', 90))
         grad4 = int(data.get('Graduations4', 75))
         grad3 = int(data.get('Graduations3', 50))
@@ -154,7 +154,6 @@ def save_settings():
         if not (grad5 >= grad4 >= grad3):
             return jsonify({'error': 'Пороги должны быть упорядочены: 5 >= 4 >= 3'}), 400
         
-        # TeacherIP validation (базовая проверка)
         teacher_ip = str(data.get('TeacherIP', '127.0.0.1')).strip()
         if not teacher_ip:
             return jsonify({'error': 'IP адрес не может быть пустым'}), 400

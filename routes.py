@@ -101,7 +101,8 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             'grade': record.get('grade', None),
             'timestamp': record.get('timestamp'),
             'ip': request.remote_addr,
-            'connected': True
+            'connected': True,
+            'correct_answers': 0  # Счетчик правильных ответов на бэке
         })
         students_data[student_key] = record
         save_students(app.students_data)
@@ -125,24 +126,29 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             emit('submit_error', {'error': 'Не зарегистрирован'}, namespace='/student')
             return
 
-
-        score = data.get('score')
         student_key = students_sessions[sid]
         student_record = app.students_data['students'].get(student_key)
         if student_record is None:
             emit('submit_error', {'error': 'Запись ученика не найдена'}, namespace='/student')
             return
 
+        # Подсчет баллов на бэке на основе счетчика правильных ответов
+        correct_answers = student_record.get('correct_answers', 0)
+        max_questions = load_settings(what="TotalQuestions") or 10
+        
+        # Формула: 10 баллов за каждый правильный ответ, максимум 100
+        score = min(100, correct_answers * 10)
+        
         grade = calculate_grade(score)
         student_record.update({
             'score': score,
             'grade': grade,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'asked_questions': {'sqrt': [], 'powers': []} 
+            'asked_questions': {'sqrt': [], 'powers': []}
         })
         save_students(app.students_data)
 
-        emit('submit_success', {'grade': grade}, namespace='/student')
+        emit('submit_success', {'grade': grade, 'score': score}, namespace='/student')
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
         active_students = [s for s in app.students_data.get('students', {}).values() if s.get('connected', False)]
@@ -173,6 +179,14 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             return
         variant = data.get('variant')
         if test_manager.start_test(variant):
+            # Очищаем результаты студентов перед началом нового теста
+            for student_record in app.students_data.get('students', {}).values():
+                student_record['score'] = None
+                student_record['grade'] = None
+                student_record['timestamp'] = None
+                student_record['asked_questions'] = {'sqrt': [], 'powers': []}
+                student_record['correct_answers'] = 0  # Обнуляем счетчик
+            
             app.students_data['test_state'] = {
                 'active': True,
                 'variant': variant,
@@ -203,6 +217,14 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if not session.get('logged_in'):
             return
         test_manager.finalize_test()
+        # Очищаем результаты всех студентов перед новым тестом
+        for student_record in app.students_data.get('students', {}).values():
+            student_record['score'] = None
+            student_record['grade'] = None
+            student_record['timestamp'] = None
+            student_record['asked_questions'] = {'sqrt': [], 'powers': []}
+            student_record['correct_answers'] = 0  # Обнуляем счетчик
+        
         app.students_data['test_state'] = {
             'active': False,
             'variant': None,
@@ -309,6 +331,16 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         student_answer = data.get('student_answer')
         try:
             result = check_answer(mode, question, question_type, student_answer)
+            
+            # Если ответ правильный, увеличиваем счетчик на бэке
+            if result:
+                sid = request.sid
+                student_key = students_sessions.get(sid)
+                if student_key and student_key in app.students_data['students']:
+                    student_record = app.students_data['students'][student_key]
+                    student_record['correct_answers'] = student_record.get('correct_answers', 0) + 1
+                    save_students(app.students_data)
+            
             emit('check_result', {'result': result}, namespace='/student')
         except Exception as exc:
             emit('check_error', {'error': str(exc)}, namespace='/student')

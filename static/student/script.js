@@ -60,11 +60,12 @@ class StudentTestSystem {
 
     async submitResult(score) {
         return new Promise((resolve) => {
-            socket.emit('student_submit', { score });
+            // Отправляем пустые данные - сервер сам считает баллы
+            socket.emit('student_submit', {});
             
             const handleSuccess = (data) => {
                 socket.off('submit_error', handleError);
-                resolve({ grade: data.grade });
+                resolve({ grade: data.grade, score: data.score });
             };
             
             const handleError = (data) => {
@@ -268,15 +269,24 @@ async function handleAnswerSubmit() {
 async function finishTest() {
     clearInterval(questionTimer);
     document.getElementById('timer-container').style.display = 'none';
-    const finalScore = Math.min(100, Math.max(0, Math.round(score)));
     document.getElementById('main-title').textContent = 'Тест завершён';
     const resultMessage = document.getElementById('result-message');
-    resultMessage.textContent = `✅ Тест завершён!\nБаллы: ${finalScore}`;
     document.getElementById('test-block').style.display = 'none';
     document.getElementById('waiting-block').style.display = 'none';
     document.getElementById('result-block').style.display = 'block';
-    const result = await studentSystem.submitResult(finalScore);
-    if (result.error) console.log(`Ошибка отправки ${result.error}`);
+    
+    // Отправляем на сервер (без score - сервер сам считает баллы)
+    const result = await studentSystem.submitResult(null);
+    
+    if (result.error) {
+        resultMessage.textContent = `❌ Ошибка: ${result.error}`;
+        console.log(`Ошибка отправки ${result.error}`);
+    } else {
+        // Показываем баллы и оценку, полученные от сервера
+        const finalScore = result.score || 0;
+        const grade = result.grade || '2';
+        resultMessage.textContent = `✅ Тест завершён!\nБаллы: ${finalScore}\nОценка: ${grade}`;
+    }
     logoutBtn.style.display = 'none';
 }
 
