@@ -1,22 +1,5 @@
 {
-    "students": {
-        "поляков|402 5": {
-            "name": "Поляков",
-            "pc": "402 5",
-            "computer_number": "402 5",
-            "type": null,
-            "asked_questions": {
-                "sqrt": [],
-                "powers": []
-            },
-            "score": null,
-            "grade": null,
-            "timestamp": null,
-            "ip": "172.21.93.44",
-            "connected": true,
-            "correct_answers": 0
-        }
-    },
+    "students": {},
     "test_state": {
         "active": false,
         "variant": null,

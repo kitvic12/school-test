@@ -30,6 +30,10 @@ settings = getSettings().then(s => {
             <td><input type="text" class="settings-parametres" id="teacherIP" value=${s.TeacherIP} required></td>
         </tr>
         <tr>
+            <td>IP второго учителя (опционально):</td>
+            <td><input type="text" class="settings-parametres" id="secondaryTeacherIP" value="${s.SecondaryTeacherIP || ''}" placeholder="Оставьте пусто для отключения"></td>
+        </tr>
+        <tr>
             <td>Порт:</td>
             <td><input type="number" class="settings-parametres" id="port" value="${s.Port}" required></td>
         </tr>
@@ -92,6 +96,7 @@ async function formCheck() {
         if (!savedSettingsValues) return;
         const fields = [
             { id: 'teacherIP', key: 'TeacherIP', parse: v => String(v).trim() },
+            { id: 'secondaryTeacherIP', key: 'SecondaryTeacherIP', parse: v => String(v).trim() },
             { id: 'port', key: 'Port', parse: v => parseInt(v, 10) || 0 },
             { id: 'totalQuestions', key: 'TotalQuestions', parse: v => parseInt(v, 10) || 0 },
             { id: 'timePerQuestion', key: 'TimePerQuestion', parse: v => parseInt(v, 10) || 0 },
@@ -117,6 +122,7 @@ async function formCheck() {
             if (!s || typeof s !== 'object') return;
             savedSettingsValues = {
                 TeacherIP: String(s.TeacherIP || '127.0.0.1').trim(),
+                SecondaryTeacherIP: String(s.SecondaryTeacherIP || '').trim(),
                 Port: parseInt(s.Port, 10) || 5000,
                 TotalQuestions: parseInt(s.TotalQuestions, 10) || 10,
                 TimePerQuestion: parseInt(s.TimePerQuestion, 10) || 10,
@@ -129,7 +135,7 @@ async function formCheck() {
     }
 
     const attach = () => {
-        const ids = ['teacherIP','port','totalQuestions','timePerQuestion','graduations5','graduations4','graduations3'];
+        const ids = ['teacherIP','secondaryTeacherIP','port','totalQuestions','timePerQuestion','graduations5','graduations4','graduations3'];
         let ok = true;
         ids.forEach(id => {
             const input = document.getElementById(id);
@@ -155,6 +161,7 @@ formCheck();
 
 function update_settings() { 
     const TeacherIP = String(document.getElementById('teacherIP').value).trim();
+    const SecondaryTeacherIP = String(document.getElementById('secondaryTeacherIP').value).trim();
     const Port = parseInt(document.getElementById('port').value, 10) || 5000;
     const TotalQuestions = parseInt(document.getElementById('totalQuestions').value, 10) || 10;
     const TimePerQuestion = parseInt(document.getElementById('timePerQuestion').value, 10) || 10;
@@ -166,7 +173,7 @@ function update_settings() {
     fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ TeacherIP, Port, TotalQuestions, TimePerQuestion, Graduations5, Graduations4, Graduations3 }),
+        body: JSON.stringify({ TeacherIP, SecondaryTeacherIP, Port, TotalQuestions, TimePerQuestion, Graduations5, Graduations4, Graduations3 }),
         credentials: 'include'
     }).then(res => res.json()).then(data => {
         if (data.error) {
@@ -181,6 +188,7 @@ function update_settings() {
 
             savedSettingsValues = {
                 TeacherIP: TeacherIP,
+                SecondaryTeacherIP: SecondaryTeacherIP,
                 Port: Port,
                 TotalQuestions: TotalQuestions,
                 TimePerQuestion: TimePerQuestion,

@@ -100,13 +100,13 @@ class StudentTestSystem {
                 let questionHtml = '';
 
                 if (returned_type === 'base') {
-                    if (this.testVariant === 'sqrt') {
+                    if (this.testVariant === 'squares') {
                         questionHtml = `Чему равен квадрат числа ${question}<sup>2</sup>?`;
                     } else {
                         questionHtml = `Чему равно 2<sup>${question}</sup>?`;
                     }
                 } else {
-                    if (this.testVariant === 'sqrt') {
+                    if (this.testVariant === 'squares') {
                         questionHtml = `Чему равен корень из ${question}?`;
                     } else {
                         questionHtml = `В какую степень нужно возвести 2, чтобы получить ${question}?`;
@@ -142,12 +142,17 @@ class StudentTestSystem {
             
             const handleCheckResult = (data) => {
                 socket.off('check_error', handleCheckError);
-                resolve(data.result);
+                // Возвращаем полные данные с баллами и счетом из сервера
+                resolve({
+                    result: data.result,
+                    points_earned: data.points_earned || 0,
+                    current_score: data.current_score || 0
+                });
             };
             
             const handleCheckError = (data) => {
                 socket.off('check_result', handleCheckResult);
-                resolve(false);
+                resolve({ result: false, points_earned: 0, current_score: 0 });
             };
             
             socket.on('check_result', handleCheckResult);
@@ -188,12 +193,18 @@ function startQuestionTimer() {
 
 function handleTimeUp() {
     const lastInput = parseInt(document.getElementById('answer').value.trim());
-    if (!isNaN(lastInput) && currentQuestionData && 
-        studentSystem.checkAnswer(currentQuestionData.question, currentQuestionData.questionType, lastInput)) {
-        const points = (attemptCount === 1) ? 10 : 5;
-        score += points;
-        questionCount++;
-        showAnswerFeedback(true, 'Верный ответ!');
+    if (!isNaN(lastInput) && currentQuestionData) {
+        studentSystem.checkAnswer(currentQuestionData.question, currentQuestionData.questionType, lastInput).then(checkResult => {
+            if (checkResult.result) {
+                // Используем данные со скина вместо локального подсчета
+                score = checkResult.current_score || 0;
+                questionCount++;
+                showAnswerFeedback(true, 'Верный ответ!');
+            } else {
+                questionCount++;
+                showAnswerFeedback(false, 'Время вышло!');
+            }
+        });
     } else {
         questionCount++;
         showAnswerFeedback(false, 'Время вышло!');
@@ -268,17 +279,22 @@ async function handleAnswerSubmit() {
     }
     
     attemptCount++;
-    const isCorrect = await studentSystem.checkAnswer(
+    const checkResult = await studentSystem.checkAnswer(
         currentQuestionData.question, 
         currentQuestionData.questionType, 
         userAnswer
     );
     
+    // Используем данные со скина: баллы и счет от сервера
+    const isCorrect = checkResult.result;
+    const points = checkResult.points_earned || 0;
+    const serverScore = checkResult.current_score || 0;
+    
     if (isCorrect) {
-        const points = (attemptCount === 1) ? 10 : 5;
-        score += points;
+        // Обновляем локальный счет на основе данных сервера
+        score = serverScore;
         questionCount++;
-        showAnswerFeedback(true);
+        showAnswerFeedback(true, points > 0 ? `Верно! +${points} баллов` : 'Верно!');
     } else {
         showAnswerFeedback(false, 'Неверно!');
     }

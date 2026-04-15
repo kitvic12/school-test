@@ -1,5 +1,6 @@
 {
     "TeacherIP": "127.0.0.1",
+    "SecondaryTeacherIP": "",
     "Port": 5000,
     "TotalQuestions": 10,
     "TimePerQuestion": 10,

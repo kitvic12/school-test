@@ -86,6 +86,7 @@ def api_settings():
         return jsonify({"error": "Failed to load settings"}), 500
     return jsonify({
         "TeacherIP": settings.get("TeacherIP"),
+        "SecondaryTeacherIP": settings.get("SecondaryTeacherIP", ""),
         "Port": settings.get("Port"),
         "TimePerQuestion": settings.get("TimePerQuestion"),
         "TotalQuestions": settings.get("TotalQuestions"),
@@ -121,8 +122,6 @@ def save_settings():
     if client_ip not in ['127.0.0.1', 'localhost', '::1', '0.0.0.0']:
         return jsonify({'error': 'Доступ запрещён. Только локальный доступ'}), 403
     
-    if not session.get('logged_in'):
-        return jsonify({'error': 'Не авторизован'}), 401
     if is_active():
         return jsonify({'error': 'Нельзя менять настройки во время активного теста'}), 400
     
@@ -157,6 +156,8 @@ def save_settings():
         if not teacher_ip:
             return jsonify({'error': 'IP адрес не может быть пустым'}), 400
         
+        secondary_teacher_ip = str(data.get('SecondaryTeacherIP', '')).strip()
+        
     except (ValueError, TypeError) as e:
         return jsonify({'error': f'Ошибка в параметрах: {str(e)}'}), 400
 
@@ -166,6 +167,17 @@ def save_settings():
     update_settings(data)
 
     port_changed = (old_port != port)
+    
+    # Трансляция обновленных настроек к обеим учителям через WebSocket
+    from flask_socketio import emit
+    socketio.emit('settings_updated', {
+        'TotalQuestions': total_questions,
+        'TimePerQuestion': time_per_question,
+        'Graduations5': grad5,
+        'Graduations4': grad4,
+        'Graduations3': grad3,
+        'SecondaryTeacherIP': secondary_teacher_ip
+    }, namespace='/teacher', broadcast=True)
     
     return jsonify({
         'message': 'Настройки сохранены',
