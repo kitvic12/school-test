@@ -170,6 +170,7 @@ let questionTimer = null;
 let timeLeft = QUESTION_TIME;
 let currentQuestionData = null;
 let attemptCount = 0;
+let isProcessing = false;  // Флаг для предотвращения одновременной обработки нескольких ответов
 
 function updateQuestionTimerDisplay() {
     const timerEl = document.getElementById('timer-container');
@@ -192,6 +193,9 @@ function startQuestionTimer() {
 }
 
 function handleTimeUp() {
+    if (isProcessing) return;  // Предотвращаем двойную обработку
+    isProcessing = true;
+    
     const lastInput = parseInt(document.getElementById('answer').value.trim());
     if (!isNaN(lastInput) && currentQuestionData) {
         studentSystem.checkAnswer(currentQuestionData.question, currentQuestionData.questionType, lastInput).then(checkResult => {
@@ -204,10 +208,12 @@ function handleTimeUp() {
                 questionCount++;
                 showAnswerFeedback(false, 'Время вышло!');
             }
+            isProcessing = false;
         });
     } else {
         questionCount++;
         showAnswerFeedback(false, 'Время вышло!');
+        isProcessing = false;
     }
 }
 
@@ -244,6 +250,7 @@ async function generateQuestion() {
 function showAnswerFeedback(isCorrect, message = '') {
     const answerStatus = document.getElementById('answer-status');
     answerStatus.className = isCorrect ? 'right' : 'wrong';
+    answerStatus.textContent = message;
     setTimeout(() => answerStatus.classList.add('expand'), 10);
     setTimeout(() => {
         answerStatus.classList.remove('expand');
@@ -251,16 +258,19 @@ function showAnswerFeedback(isCorrect, message = '') {
         if (questionCount >= TOTAL_QUESTIONS) {
             finishTest();
         } else if (!isCorrect && timeLeft > 0) {
+            isProcessing = false;  // Разрешаем обработку следующего ответа
             document.getElementById('answer').value = '';
             document.getElementById('answer').focus();
         } else {
             generateQuestion();
+            isProcessing = false;  // Разрешаем обработку следующего вопроса
         }
     }, 1000);
 }
 
 async function handleAnswerSubmit() {
     if (!studentSystem.registered || !studentSystem.testActive || questionCount >= TOTAL_QUESTIONS) return;
+    if (isProcessing) return;  // Предотвращаем двойную обработку
     
     if (timeLeft <= 0) {
         error_place.textContent = 'Время вышло!';
@@ -278,6 +288,7 @@ async function handleAnswerSubmit() {
         return;
     }
     
+    isProcessing = true;
     attemptCount++;
     const checkResult = await studentSystem.checkAnswer(
         currentQuestionData.question, 
@@ -297,6 +308,7 @@ async function handleAnswerSubmit() {
         showAnswerFeedback(true, points > 0 ? `Верно! +${points} баллов` : 'Верно!');
     } else {
         showAnswerFeedback(false, 'Неверно!');
+        isProcessing = false;
     }
 }
 

@@ -32,7 +32,6 @@ def make_student_key(name, pc):
 
 
 def get_persisted_student_list(app):
-    # Перезагружаем данные из файла чтобы получить актуальный список студентов
     app.students_data = load_students()
     result = []
     for record in app.students_data.get('students', {}).values():
@@ -44,12 +43,10 @@ def get_persisted_student_list(app):
 
 
 def is_teacher_authorized(app):
-    """Проверяет авторизован ли учитель на основе IP адреса"""
     client_ip = request.remote_addr
     primary_ip = '127.0.0.1'
     secondary_ip = load_settings(what="SecondaryTeacherIP")
     
-    # Основной адрес или вторичный (если установлен)
     if client_ip == primary_ip:
         return True
     if secondary_ip and client_ip == secondary_ip:
@@ -58,10 +55,20 @@ def is_teacher_authorized(app):
 
 
 def setup_routes(app, socketio, students_sessions, test_manager):
+    
+    def check_test_completion():
+        connected_students = {k: v for k, v in app.students_data.get('students', {}).items() if v.get('connected', False)}
+        
+        if not connected_students:
+            return  
+        
+        all_submitted = all(s.get('score') is not None for s in connected_students.values())
+        
+        if all_submitted and test_manager.is_test_active():
+            socketio.emit('all_students_submitted', {}, namespace='/teacher', broadcast=True)
 
     @app.route('/api/server-session', methods=['GET'])
     def get_server_session():
-        """Возвращает уникальный ID сессии сервера для проверки перезагрузки"""
         return jsonify({'server_session_id': app.server_session_id})
 
     @app.route('/api/check-login')
@@ -118,7 +125,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             'timestamp': record.get('timestamp'),
             'ip': request.remote_addr,
             'connected': True,
-            'correct_answers': 0  # Счетчик правильных ответов на бэке
+            'correct_answers': 0 
         })
         students_data[student_key] = record
         save_students(app.students_data)
@@ -134,9 +141,6 @@ def setup_routes(app, socketio, students_sessions, test_manager):
 
     @socketio.on('student_submit', namespace='/student')
     def handle_student_submit(data):
-        if not test_manager.is_test_active():
-            emit('submit_error', {'error': 'Тест завершён'}, namespace='/student')
-            return
         sid = request.sid
         if sid not in students_sessions:
             emit('submit_error', {'error': 'Не зарегистрирован'}, namespace='/student')
@@ -147,8 +151,11 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if student_record is None:
             emit('submit_error', {'error': 'Запись ученика не найдена'}, namespace='/student')
             return
+        
+        if not test_manager.is_test_active() and not student_record.get('score') is None:
+            emit('submit_error', {'error': 'Тест завершён'}, namespace='/student')
+            return
 
-        # Используем накопленные баллы со скинутых ответов, не берем от клиента
         score = min(100, student_record.get('current_score', 0))
         
         grade = calculate_grade(score)
@@ -157,7 +164,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             'grade': grade,
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'asked_questions': {'sqrt': [], 'powers': []},
-            'current_score': 0,  # Очищаем текущий счетчик
+            'current_score': 0,  
             'current_question_attempts': 0
         })
         save_students(app.students_data)
@@ -165,9 +172,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         emit('submit_success', {'grade': grade, 'score': score}, namespace='/student')
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
 
-        active_students = [s for s in app.students_data.get('students', {}).values() if s.get('connected', False)]
-        if active_students and all(s.get('score') is not None for s in active_students):
-            emit('all_students_submitted', {}, namespace='/teacher', broadcast=True)
+        check_test_completion()
 
     @socketio.on('student_logout', namespace='/student')
     def handle_student_logout():
@@ -193,13 +198,12 @@ def setup_routes(app, socketio, students_sessions, test_manager):
             return
         variant = data.get('variant')
         if test_manager.start_test(variant):
-            # Очищаем результаты студентов перед началом нового теста
             for student_record in app.students_data.get('students', {}).values():
                 student_record['score'] = None
                 student_record['grade'] = None
                 student_record['timestamp'] = None
                 student_record['asked_questions'] = {'sqrt': [], 'powers': []}
-                student_record['correct_answers'] = 0  # Обнуляем счетчик
+                student_record['correct_answers'] = 0 
             
             app.students_data['test_state'] = {
                 'active': True,
@@ -207,8 +211,21 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                 'finalized': False
             }
             save_students(app.students_data)
+            
+            dead_students = []
+            for student_key, student_record in app.students_data.get('students', {}).items():
+                if not student_record.get('connected', False):
+                    dead_students.append({
+                        'name': student_record.get('name'),
+                        'ip': student_record.get('ip'),
+                        'pc': student_record.get('computer_number')
+                    })
+            
             emit('test_started', {'variant': variant}, namespace='/student', broadcast=True)
             emit('test_started', {'variant': variant}, namespace='/teacher', broadcast=True)
+            
+            if dead_students:
+                emit('check_dead_students', {'students': dead_students}, namespace='/teacher', broadcast=True)
 
 
     @socketio.on('stop_test', namespace='/teacher')
@@ -231,13 +248,12 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         if not is_teacher_authorized(app):
             return
         test_manager.finalize_test()
-        # Очищаем результаты всех студентов перед новым тестом
         for student_record in app.students_data.get('students', {}).values():
             student_record['score'] = None
             student_record['grade'] = None
             student_record['timestamp'] = None
             student_record['asked_questions'] = {'sqrt': [], 'powers': []}
-            student_record['correct_answers'] = 0  # Обнуляем счетчик
+            student_record['correct_answers'] = 0 
         
         app.students_data['test_state'] = {
             'active': False,
@@ -303,6 +319,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                     pass
         
         emit('update_students', get_persisted_student_list(app), namespace='/teacher', broadcast=True)
+        check_test_completion()
 
 
     @socketio.on('new_quest', namespace='/student')
@@ -321,15 +338,14 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         
         mode = normalize_variant(data.get('mode'))
         
-        # Инициализируем счетчик попыток и текущий вопрос
         if 'current_question_attempts' not in student_record:
             student_record['current_question_attempts'] = 0
-        student_record['current_question_attempts'] = 0  # Сбрасываем для нового вопроса
+        student_record['current_question_attempts'] = 0  
         
         try:
             question, updated_questions_dict, returned_type = generate_question_advanced(mode, asked_questions)
             student_record['asked_questions'] = updated_questions_dict
-            student_record['current_question'] = question  # Сохраняем текущий вопрос
+            student_record['current_question'] = question  
             student_record['current_question_type'] = returned_type
             save_students(app.students_data)
             
@@ -337,7 +353,7 @@ def setup_routes(app, socketio, students_sessions, test_manager):
                 'question': question,
                 'returned_type': returned_type,
                 'updated_questions': updated_questions_dict[mode],
-                'current_score': student_record.get('current_score', 0)  # Отправляем текущие баллы
+                'current_score': student_record.get('current_score', 0)  
             }, namespace='/student')
         except Exception as exc:
             emit('quest_error', {'error': str(exc)}, namespace='/student')
@@ -363,20 +379,14 @@ def setup_routes(app, socketio, students_sessions, test_manager):
         
         try:
             result = check_answer(mode, question, question_type, student_answer)
-            
-            # Увеличиваем счетчик попыток
             student_record['current_question_attempts'] = student_record.get('current_question_attempts', 0) + 1
-            
-            # Если ответ правильный - вычисляем баллы на бэке
             if result:
                 attempts = student_record.get('current_question_attempts', 1)
-                # 10 баллов за первую попытку, 5 за остальные
                 points = 10 if attempts == 1 else 5
                 student_record['current_score'] = student_record.get('current_score', 0) + points
             
             save_students(app.students_data)
             
-            # Отправляем результат и текущие баллы
             emit('check_result', {
                 'result': result,
                 'points_earned': (10 if student_record.get('current_question_attempts', 1) == 1 else 5) if result else 0,

@@ -168,7 +168,6 @@ def save_settings():
 
     port_changed = (old_port != port)
     
-    # Трансляция обновленных настроек к обеим учителям через WebSocket
     from flask_socketio import emit
     socketio.emit('settings_updated', {
         'TotalQuestions': total_questions,

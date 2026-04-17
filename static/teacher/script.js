@@ -401,6 +401,19 @@ function initSocket() {
         document.getElementById('activeTestInfo').style.display = 'block';
         document.getElementById('what_open').textContent = `На данный момент открыт вариант "${data.variant === 'powers' ? 'Степени двойки' : 'Квадраты чисел'}". Результаты обновляются автоматически.`});
 
+    teacherSocket.on('check_dead_students', (data) => {
+        const deadStudents = data.students || [];
+        if (deadStudents.length > 0) {
+            let studentList = deadStudents.map(s => `${s.name} (ПК: ${s.pc})`).join('\n');
+            const shouldKick = confirm(`Обнаружены студенты без активного подключения:\n\n${studentList}\n\nВыгнать этих студентов?`);
+            if (shouldKick) {
+                deadStudents.forEach(student => {
+                    teacherSocket.emit('kick_student', { ip: student.ip });
+                });
+            }
+        }
+    });
+
 
     teacherSocket.on('test_stopped', () => {
         updateButtons({active: false, finalized: false});
